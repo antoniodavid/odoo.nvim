@@ -279,46 +279,55 @@ function M.info()
   local base_path = M.get_base_path()
   local versions = M.get_installed_versions()
 
-  util.info("═══════════════════════════════════════")
-  util.info("  Odoo Stubs Info")
-  util.info("═══════════════════════════════════════")
-  util.info("Ruta base: " .. util.format_path(base_path))
-  util.info("")
+  local lines = {
+    "═══════════════════════════════════════",
+    "  Odoo Stubs Info",
+    "═══════════════════════════════════════",
+    "Ruta base: " .. util.format_path(base_path),
+    "",
+  }
 
   if #versions == 0 then
-    util.warn("No hay stubs instalados")
-    util.info("Ejecuta :OdooDownloadStubs para descargarlos")
-    return
-  end
+    table.insert(lines, "⚠ No hay stubs instalados")
+    table.insert(lines, "")
+    table.insert(lines, "Ejecuta :OdooDownloadStubs para descargarlos")
+  else
+    table.insert(lines, "Versiones instaladas:")
+    for _, version in ipairs(versions) do
+      local path = M.get_path(version)
 
-  util.info("Versiones instaladas:")
-  for _, version in ipairs(versions) do
-    local path = M.get_path(version)
+      -- Obtener información del commit
+      local result = vim.system({ "git", "log", "-1", "--format=%h %s (%cr)" }, {
+        cwd = path,
+        text = true,
+      }):wait()
 
-    -- Obtener información del commit
-    local result = vim.system({ "git", "log", "-1", "--format=%h %s (%cr)" }, {
-      cwd = path,
-      text = true,
-    }):wait()
+      local commit_info = ""
+      if result.code == 0 and result.stdout then
+        commit_info = " - " .. vim.trim(result.stdout)
+      end
 
-    local commit_info = ""
-    if result.code == 0 and result.stdout then
-      commit_info = " - " .. vim.trim(result.stdout)
+      table.insert(lines, "  • Odoo " .. version .. commit_info)
     end
 
-    util.info("  • Odoo " .. version .. commit_info)
-  end
-
-  -- Mostrar versión actual del proyecto
-  local root = util.get_odoo_root()
-  if root then
-    local current_version = util.get_odoo_version(root)
-    util.info("")
-    util.info("Versión del proyecto actual: " .. current_version)
-    if not vim.tbl_contains(versions, current_version) then
-      util.warn("⚠ No hay stubs instalados para esta versión")
+    -- Mostrar versión actual del proyecto
+    local root = util.get_odoo_root()
+    if root then
+      local current_version = util.get_odoo_version(root)
+      table.insert(lines, "")
+      table.insert(lines, "Versión del proyecto actual: " .. current_version)
+      if not vim.tbl_contains(versions, current_version) then
+        table.insert(lines, "⚠ No hay stubs instalados para esta versión")
+      end
     end
   end
+  
+  table.insert(lines, "")
+  table.insert(lines, "═══════════════════════════════════════")
+  table.insert(lines, "")
+  table.insert(lines, "Presiona 'q' o <Esc> para cerrar")
+
+  util.show_float_window(lines, { title = " Stubs Info " })
 end
 
 ---Descarga stubs para todas las versiones soportadas

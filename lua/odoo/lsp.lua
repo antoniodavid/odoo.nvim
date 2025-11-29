@@ -326,14 +326,15 @@ end
 function M.show_config()
   local clients = vim.lsp.get_clients({ bufnr = 0 })
   local found = false
+  local lines = {}
 
   for _, client in ipairs(clients) do
     if client.name == "pyright" or client.name == "basedpyright" then
       found = true
-      util.info("═══════════════════════════════════════")
-      util.info("  " .. client.name .. " Configuration")
-      util.info("═══════════════════════════════════════")
-      util.info("Root: " .. (client.config.root_dir or "N/A"))
+      table.insert(lines, "═══════════════════════════════════════")
+      table.insert(lines, "  " .. client.name .. " Configuration")
+      table.insert(lines, "═══════════════════════════════════════")
+      table.insert(lines, "Root: " .. (client.config.root_dir or "N/A"))
 
       local settings = client.config.settings or {}
       local python = settings.python or {}
@@ -342,30 +343,50 @@ function M.show_config()
       -- Mostrar tipo de proyecto y versión
       local root, project_type = util.get_odoo_root()
       local version = root and util.get_odoo_version(root) or "N/A"
-      util.info("Project Type: " .. (project_type or "unknown"))
-      util.info("Odoo Version: " .. version)
-      util.info("Python Version: " .. (analysis.pythonVersion or "N/A"))
+      table.insert(lines, "Project Type: " .. (project_type or "unknown"))
+      table.insert(lines, "Odoo Version: " .. version)
+      table.insert(lines, "Python Version: " .. (analysis.pythonVersion or "N/A"))
 
-      util.info("")
-      util.info("Extra Paths (" .. #(analysis.extraPaths or {}) .. "):")
+      table.insert(lines, "")
+
+      table.insert(lines, "Extra Paths (" .. #(analysis.extraPaths or {}) .. "):")
       for i, path in ipairs(analysis.extraPaths or {}) do
         if i <= 10 then
-          util.info("  " .. i .. ". " .. util.format_path(path))
+          table.insert(lines, "  " .. i .. ". " .. util.format_path(path))
         elseif i == 11 then
-          util.info("  ... y " .. (#analysis.extraPaths - 10) .. " más")
+          table.insert(lines, "  ... y " .. (#analysis.extraPaths - 10) .. " más")
         end
       end
 
-      util.info("")
-      util.info("Stub Path: " .. util.format_path(analysis.stubPath or "N/A"))
-      util.info("Type Checking: " .. (analysis.typeCheckingMode or "N/A"))
-      util.info("Python: " .. (python.pythonPath or "N/A"))
+      table.insert(lines, "")
+      table.insert(lines, "Stub Path: " .. util.format_path(analysis.stubPath or "N/A"))
+      table.insert(lines, "Type Checking: " .. (analysis.typeCheckingMode or "N/A"))
+      table.insert(lines, "Python: " .. (python.pythonPath or "N/A"))
+      
+      table.insert(lines, "")
+      table.insert(lines, "═══════════════════════════════════════")
+      table.insert(lines, "")
+      table.insert(lines, "Presiona 'q' o <Esc> para cerrar")
     end
   end
 
   if not found then
-    util.warn("No hay cliente pyright/basedpyright activo")
+    lines = {
+      "═══════════════════════════════════════",
+      "  ⚠ LSP Configuration",
+      "═══════════════════════════════════════",
+      "",
+      "No hay cliente pyright/basedpyright activo",
+      "",
+      "Abre un archivo Python para iniciar el LSP",
+      "",
+      "═══════════════════════════════════════",
+      "",
+      "Presiona 'q' o <Esc> para cerrar",
+    }
   end
+
+  util.show_float_window(lines, { title = " LSP Info " })
 end
 
 ---Registra los comandos del módulo
