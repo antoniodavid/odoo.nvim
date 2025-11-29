@@ -97,7 +97,7 @@ function M.generate_doodba_settings(root_dir, version)
   local doodba_paths = {
     root_dir .. "/odoo/custom/src",
     root_dir .. "/odoo/auto/addons",
-    root_dir .. "/private",
+    root_dir .. "/odoo/custom/src/private",
   }
 
   for _, path in ipairs(doodba_paths) do
@@ -422,7 +422,7 @@ function M.generate_pyrightconfig(path)
 
   local pyrightconfig = {
     include = project_type == "doodba"
-      and { "odoo/custom/src", "private" }
+      and { "odoo/custom/src", "odoo/custom/src/private" }
       or { "." },
     exclude = {
       "**/__pycache__",
