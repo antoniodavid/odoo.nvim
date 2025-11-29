@@ -843,4 +843,67 @@ function M.get_compose_cmd()
   return nil
 end
 
+---Muestra una ventana flotante con información
+---@param lines string[] Líneas de texto a mostrar
+---@param opts? {title?: string, width?: number} Opciones de la ventana
+function M.show_float_window(lines, opts)
+  opts = opts or {}
+  local title = opts.title or " Info "
+  
+  -- Crear buffer flotante
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+  -- Calcular dimensiones de la ventana
+  local max_width = 0
+  for _, line in ipairs(lines) do
+    max_width = math.max(max_width, vim.fn.strdisplaywidth(line))
+  end
+  
+  local width = math.min(opts.width or max_width + 4, 100)
+  local height = math.min(#lines, 40)
+  
+  local ui = vim.api.nvim_list_uis()[1]
+  if not ui then
+    -- Fallback a notificaciones si no hay UI
+    for _, line in ipairs(lines) do
+      M.info(line)
+    end
+    return
+  end
+  
+  local win_width = ui.width
+  local win_height = ui.height
+
+  -- Centrar la ventana
+  local row = math.floor((win_height - height) / 2)
+  local col = math.floor((win_width - width) / 2)
+
+  -- Configuración de la ventana flotante
+  local win_opts = {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    title = title,
+    title_pos = "center",
+  }
+
+  local win = vim.api.nvim_open_win(buf, true, win_opts)
+
+  -- Configurar highlight para el buffer
+  vim.api.nvim_win_set_option(win, "winhl", "Normal:Normal,FloatBorder:FloatBorder")
+
+  -- Keymaps para cerrar la ventana
+  local close_keys = { "q", "<Esc>", "<CR>" }
+  for _, key in ipairs(close_keys) do
+    vim.api.nvim_buf_set_keymap(buf, "n", key, ":close<CR>", { noremap = true, silent = true })
+  end
+end
+
 return M

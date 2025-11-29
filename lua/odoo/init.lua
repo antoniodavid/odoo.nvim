@@ -334,8 +334,14 @@ end
 ---Ejecuta un diagnóstico del plugin
 function M.health_check()
   local util = require("odoo.util")
+  local stubs = require("odoo.stubs")
 
-  util.info("Ejecutando diagnóstico...")
+  local lines = {
+    "═══════════════════════════════════════",
+    "  🩺 Diagnóstico de odoo.nvim",
+    "═══════════════════════════════════════",
+    "",
+  }
 
   -- Verificar dependencias
   local checks = {
@@ -352,34 +358,32 @@ function M.health_check()
     { name = "docker-compose", check = function() return util.get_compose_cmd() ~= nil end },
   }
 
-  util.info("")
-  util.info("Dependencias:")
+  table.insert(lines, "Dependencias:")
   for _, check in ipairs(checks) do
     local ok = check.check()
     local status = ok and "✓" or "✗"
-    util.info("  " .. status .. " " .. check.name)
+    table.insert(lines, "  " .. status .. " " .. check.name)
   end
 
   -- Verificar stubs
-  local stubs = require("odoo.stubs")
-  util.info("")
-  util.info("Stubs: " .. (stubs.installed() and "✓ Instalados" or "✗ No instalados"))
+  table.insert(lines, "")
+  table.insert(lines, "Stubs: " .. (stubs.installed() and "✓ Instalados" or "✗ No instalados"))
 
   -- Verificar proyecto Odoo
   local root, project_type = util.get_odoo_root()
-  util.info("")
+  table.insert(lines, "")
   if root then
     local type_label = project_type == "doodba" and "Doodba" or "Estándar"
-    util.info("Proyecto Odoo: ✓ " .. type_label .. " en " .. util.format_path(root))
+    table.insert(lines, "Proyecto Odoo: ✓ " .. type_label .. " en " .. util.format_path(root))
 
     -- Si es Doodba, verificar Docker
     if project_type == "doodba" then
       local docker = require("odoo.docker")
       local running = docker.is_running(root)
-      util.info("Docker: " .. (running and "✓ Corriendo" or "⚠ Detenido"))
+      table.insert(lines, "Docker: " .. (running and "✓ Corriendo" or "⚠ Detenido"))
     end
   else
-    util.info("Proyecto Odoo: ✗ No detectado")
+    table.insert(lines, "Proyecto Odoo: ✗ No detectado")
   end
 
   -- Verificar LSP
@@ -391,7 +395,14 @@ function M.health_check()
       break
     end
   end
-  util.info("Pyright/Basedpyright: " .. (pyright_running and "✓ Activo" or "✗ No activo"))
+  table.insert(lines, "Pyright/Basedpyright: " .. (pyright_running and "✓ Activo" or "✗ No activo"))
+  
+  table.insert(lines, "")
+  table.insert(lines, "═══════════════════════════════════════")
+  table.insert(lines, "")
+  table.insert(lines, "Presiona 'q' o <Esc> para cerrar")
+
+  util.show_float_window(lines, { title = " Diagnóstico Odoo " })
 end
 
 -- Exponer submódulos para acceso directo
