@@ -273,11 +273,17 @@ function M.hook_lspconfig()
         original_on_new_config(new_config, new_root_dir)
       end
 
+
       -- Verificar si es un proyecto Odoo
       local odoo_root, project_type = util.get_odoo_root(new_root_dir)
       if not odoo_root then
         return
       end
+
+      -- IMPORTANTE: Sobrescribir root_dir con la raíz del proyecto Odoo
+      -- Pyright por defecto usa el directorio del módulo (__manifest__.py)
+      -- pero necesitamos la raíz del proyecto completo para configuración correcta
+      new_config.root_dir = odoo_root
 
       local version = util.get_odoo_version(odoo_root)
       local type_label = project_type == "doodba" and "Doodba" or "Odoo"
