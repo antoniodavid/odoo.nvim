@@ -126,10 +126,17 @@ M.VERSION_INFO = {
 ---@type odoo.Config
 M.defaults = {
   stubs = {
-    repo = "https://github.com/MokaTour/odoo-stubs",
+    -- Repositorio oficial de stubs de odoo-ide
+    repo = "https://github.com/odoo-ide/odoo-stubs",
     branch = nil, -- nil = auto-detectar basado en versión de Odoo
     auto_download = true,
     fallback_branch = "16.0",
+    -- Generación dinámica con stubgen
+    generate = {
+      enabled = false, -- Habilitar generación dinámica con stubgen
+      output_dir = nil, -- nil = usar directorio por defecto
+      use_inspect = true, -- Usar --inspect-mode para mejor calidad
+    },
   },
 
   lsp = {
@@ -179,11 +186,16 @@ M.defaults = {
       "__manifest__.py",
       "__openerp__.py", -- Versiones <= 9.0
     },
+    -- Marcadores reales de proyectos Doodba (estructura Copier/Tecnativa)
     doodba_markers = {
-      "repos.yaml",
-      "addons.yaml",
-      ".copier-answers.yml",
-      "docker-compose.yml",
+      "odools.toml",            -- Archivo de configuración de odools
+      "tasks.py",               -- Tareas invoke de Doodba
+      "common.yaml",            -- Docker compose común
+      "devel.yaml",             -- Docker compose desarrollo
+      "prod.yaml",              -- Docker compose producción
+      "test.yaml",              -- Docker compose tests
+      ".copier-answers.yml",    -- Respuestas de Copier
+      "setup-devel.yaml",       -- Setup de desarrollo
     },
     auto_detect = true,
   },

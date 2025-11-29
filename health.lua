@@ -99,6 +99,13 @@ function M.check()
     warn("pyright/basedpyright no instalado. Instala con: npm i -g pyright")
   end
 
+  -- Verificar stubgen (generación dinámica de stubs)
+  if vim.fn.executable("stubgen") == 1 then
+    ok("stubgen disponible (generación dinámica de stubs)")
+  else
+    info("stubgen no instalado. Para generar stubs: pip install mypy")
+  end
+
   -- Docker/Doodba
   start("Docker (Doodba Support)")
 
@@ -131,10 +138,12 @@ function M.check()
 
   local stubs_ok, stubs = pcall(require, "odoo.stubs")
   if stubs_ok then
-    if stubs.installed() then
-      ok("Stubs instalados en: " .. util.format_path(stubs.get_path()))
+    local installed_versions = stubs.get_installed_versions()
+    if #installed_versions > 0 then
+      ok("Stubs instalados: " .. table.concat(installed_versions, ", "))
+      info("Ruta: " .. util.format_path(stubs.get_base_path()))
     else
-      warn("Stubs no instalados. Ejecuta :OdooDownloadStubs")
+      warn("No hay stubs instalados. Ejecuta :OdooDownloadStubs")
     end
   end
 
@@ -166,21 +175,46 @@ function M.check()
           info("Ejecuta: :OdooDownloadStubs " .. version)
         else
           warn("No hay stubs instalados. Ejecuta :OdooDownloadStubs " .. version)
+          if vim.fn.executable("stubgen") == 1 then
+            info("O genera stubs dinámicamente: :OdooGenerateStubs")
+          end
         end
       end
     end
 
-    -- Verificar estructura específica
+    -- Verificar estructura específica de Doodba
     if project_type == "doodba" then
-      local doodba_paths = {
-        { path = root .. "/odoo/custom/src", name = "Custom addons" },
-        { path = root .. "/odoo/auto/addons", name = "Auto addons" },
-        { path = root .. "/repos.yaml", name = "repos.yaml" },
-        { path = root .. "/addons.yaml", name = "addons.yaml" },
-        { path = root .. "/docker-compose.yml", name = "docker-compose.yml" },
+      info("Estructura Doodba detectada:")
+
+      -- Archivos de configuración de Doodba
+      local doodba_config_files = {
+        { path = root .. "/odools.toml", name = "odools.toml" },
+        { path = root .. "/tasks.py", name = "tasks.py" },
+        { path = root .. "/common.yaml", name = "common.yaml" },
+        { path = root .. "/devel.yaml", name = "devel.yaml" },
+        { path = root .. "/prod.yaml", name = "prod.yaml" },
+        { path = root .. "/.copier-answers.yml", name = ".copier-answers.yml" },
       }
 
-      for _, item in ipairs(doodba_paths) do
+      for _, item in ipairs(doodba_config_files) do
+        if util.exists(item.path) then
+          info("  ✓ " .. item.name)
+        end
+      end
+
+      -- Estructura de directorios de Doodba
+      local doodba_dirs = {
+        { path = root .. "/odoo/custom/src", name = "odoo/custom/src" },
+        { path = root .. "/odoo/auto/addons", name = "odoo/auto/addons" },
+        { path = root .. "/odoo/custom/build.d", name = "odoo/custom/build.d" },
+        { path = root .. "/odoo/custom/conf.d", name = "odoo/custom/conf.d" },
+        { path = root .. "/odoo/custom/dependencies", name = "odoo/custom/dependencies" },
+        { path = root .. "/odoo/Dockerfile", name = "odoo/Dockerfile" },
+        { path = root .. "/odoo/odoo.conf", name = "odoo/odoo.conf" },
+      }
+
+      info("Directorios:")
+      for _, item in ipairs(doodba_dirs) do
         if util.exists(item.path) then
           info("  ✓ " .. item.name)
         end

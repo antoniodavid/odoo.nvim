@@ -73,11 +73,14 @@ end
 function M.get_doodba_root(start_path)
   start_path = start_path or vim.fn.getcwd()
 
-  -- Marcadores específicos de Doodba
+  -- Marcadores específicos de Doodba (estructura Copier/Tecnativa)
   local doodba_markers = {
-    "repos.yaml",
-    "addons.yaml",
-    ".copier-answers.yml",
+    "odools.toml",          -- Configuración de odools
+    "tasks.py",             -- Tareas invoke de Doodba
+    "common.yaml",          -- Docker compose común
+    "devel.yaml",           -- Docker compose desarrollo
+    ".copier-answers.yml",  -- Respuestas de Copier
+    "setup-devel.yaml",     -- Setup de desarrollo
   }
 
   -- Buscar marcadores de Doodba
@@ -96,7 +99,7 @@ function M.get_doodba_root(start_path)
     end
   end
 
-  -- Buscar docker-compose con servicios de Odoo
+  -- Buscar docker-compose (puede ser symlink a devel.yaml)
   local compose_files = vim.fs.find({ "docker-compose.yml", "docker-compose.yaml" }, {
     path = start_path,
     upward = true,
@@ -105,11 +108,10 @@ function M.get_doodba_root(start_path)
   })
 
   for _, compose_file in ipairs(compose_files) do
-    if M.file_contains(compose_file, "odoo") then
-      local potential_root = vim.fs.dirname(compose_file)
-      if M._is_valid_doodba_structure(potential_root) then
-        return potential_root
-      end
+    local potential_root = vim.fs.dirname(compose_file)
+    -- Verificar si tiene estructura Doodba
+    if M._is_valid_doodba_structure(potential_root) then
+      return potential_root
     end
   end
 
@@ -120,21 +122,52 @@ end
 ---@param root string
 ---@return boolean
 function M._is_valid_doodba_structure(root)
-  -- Doodba tiene estructura: odoo/custom/src/ o similar
-  local doodba_dirs = {
+  -- Estructura real de Doodba (según imagen del usuario):
+  -- odoo/
+  --   auto/
+  --     addons/
+  --   custom/
+  --     src/
+  --     build.d/
+  --     conf.d/
+  --     dependencies/
+  --     entrypoint.d/
+  --     ssh/
+  --   Dockerfile
+  --   odoo.conf
+
+  -- Verificar directorios esenciales de Doodba
+  local essential_dirs = {
     root .. "/odoo/custom/src",
     root .. "/odoo/auto/addons",
-    root .. "/private",
   }
 
-  for _, dir in ipairs(doodba_dirs) do
+  for _, dir in ipairs(essential_dirs) do
     if M.exists(dir) then
       return true
     end
   end
 
-  -- También verificar si existe repos.yaml o addons.yaml
-  return M.exists(root .. "/repos.yaml") or M.exists(root .. "/addons.yaml")
+  -- Verificar archivos característicos de Doodba
+  local doodba_files = {
+    root .. "/odools.toml",
+    root .. "/tasks.py",
+    root .. "/common.yaml",
+    root .. "/devel.yaml",
+    root .. "/.copier-answers.yml",
+    root .. "/odoo/Dockerfile",
+    root .. "/odoo/odoo.conf",
+  }
+
+  local file_count = 0
+  for _, file in ipairs(doodba_files) do
+    if M.exists(file) then
+      file_count = file_count + 1
+    end
+  end
+
+  -- Si tiene al menos 2 archivos característicos, es Doodba
+  return file_count >= 2
 end
 
 ---Obtiene la ruta raíz del proyecto Odoo estándar
@@ -313,30 +346,40 @@ end
 function M.get_doodba_addons_paths(root)
   local paths = {}
 
-  -- Estructura típica de Doodba
+  -- Estructura real de Doodba (según documentación y uso real)
   local doodba_addon_dirs = {
-    -- Addons custom del proyecto
+    -- Addons custom del proyecto (donde van los módulos propios)
     "odoo/custom/src",
-    -- Addons descargados automáticamente
+    -- Addons descargados automáticamente por gitaggregate
     "odoo/auto/addons",
-    -- Addons privados
+    -- Addons privados (estructura alternativa)
     "private",
-    -- Addons enterprise (si existe)
+    -- Enterprise addons (si existen)
     "odoo/custom/src/enterprise",
-    -- Otras ubicaciones comunes
-    "odoo/custom/dependencies",
+    "odoo/auto/addons/enterprise",
   }
 
   for _, dir in ipairs(doodba_addon_dirs) do
     local full_path = root .. "/" .. dir
     if M.exists(full_path) then
       table.insert(paths, full_path)
-      -- Buscar subdirectorios que sean módulos (tienen __manifest__.py)
+      -- Buscar subdirectorios que contengan repositorios con múltiples módulos
       M._add_addon_subdirs(full_path, paths)
     end
   end
 
-  -- Buscar en repos.yaml para paths adicionales
+  -- Intentar parsear odools.toml si existe (nuevo formato de configuración)
+  local odools_file = root .. "/odools.toml"
+  if M.exists(odools_file) then
+    local extra_paths = M._parse_odools_toml(odools_file, root)
+    for _, path in ipairs(extra_paths) do
+      if not vim.tbl_contains(paths, path) then
+        table.insert(paths, path)
+      end
+    end
+  end
+
+  -- Fallback: buscar en repos.yaml para paths adicionales (proyectos legacy)
   local repos_file = root .. "/repos.yaml"
   if M.exists(repos_file) then
     local extra_paths = M._parse_repos_yaml(repos_file, root)
@@ -344,6 +387,41 @@ function M.get_doodba_addons_paths(root)
       if not vim.tbl_contains(paths, path) then
         table.insert(paths, path)
       end
+    end
+  end
+
+  return paths
+end
+
+---Parsea odools.toml para obtener configuración del proyecto
+---@param odools_file string
+---@param root string
+---@return string[]
+function M._parse_odools_toml(odools_file, root)
+  local paths = {}
+
+  -- Lectura simple del archivo odools.toml
+  local content = vim.fn.readfile(odools_file)
+
+  for _, line in ipairs(content) do
+    -- Buscar paths de addons configurados
+    -- Formato: addons_path = ["./odoo/custom/src", "./odoo/auto/addons"]
+    local addons_paths = line:match('addons_path%s*=%s*%[([^%]]+)%]')
+    if addons_paths then
+      for path in addons_paths:gmatch('["\']([^"\']+)["\']') do
+        -- Convertir path relativo a absoluto
+        local abs_path = path:gsub("^%./", root .. "/")
+        if M.exists(abs_path) and not vim.tbl_contains(paths, abs_path) then
+          table.insert(paths, abs_path)
+        end
+      end
+    end
+
+    -- Buscar configuración de versión de Odoo
+    local odoo_version = line:match('odoo_version%s*=%s*["\']([%d%.]+)["\']')
+    if odoo_version then
+      -- Guardar para uso posterior si es necesario
+      M._cached_odoo_version = odoo_version
     end
   end
 
@@ -431,34 +509,108 @@ end
 ---@param root string
 ---@return string|nil version
 function M.detect_odoo_version(root)
-  -- Método 1: Leer release.py o __init__.py de odoo
-  local version = M._detect_version_from_release(root)
+  -- Método 1: Buscar en odools.toml (proyectos Doodba modernos)
+  local version = M._detect_version_from_odools(root)
   if version then
     return version
   end
 
-  -- Método 2: Buscar en docker-compose.yml (para Doodba)
+  -- Método 2: Buscar en common.yaml o devel.yaml (Doodba)
+  version = M._detect_version_from_doodba_yaml(root)
+  if version then
+    return version
+  end
+
+  -- Método 3: Leer release.py o __init__.py de odoo
+  version = M._detect_version_from_release(root)
+  if version then
+    return version
+  end
+
+  -- Método 4: Buscar en docker-compose.yml (para Doodba)
   version = M._detect_version_from_docker(root)
   if version then
     return version
   end
 
-  -- Método 3: Buscar en .copier-answers.yml (para Doodba con copier)
+  -- Método 5: Buscar en .copier-answers.yml (para Doodba con copier)
   version = M._detect_version_from_copier(root)
   if version then
     return version
   end
 
-  -- Método 4: Buscar en requirements.txt
+  -- Método 6: Buscar en requirements.txt
   version = M._detect_version_from_requirements(root)
   if version then
     return version
   end
 
-  -- Método 5: Buscar en .env
+  -- Método 7: Buscar en .env
   version = M._detect_version_from_env(root)
   if version then
     return version
+  end
+
+  return nil
+end
+
+---Detecta versión desde odools.toml
+---@param root string
+---@return string|nil
+function M._detect_version_from_odools(root)
+  local filepath = root .. "/odools.toml"
+  if not M.exists(filepath) then
+    return nil
+  end
+
+  local content = vim.fn.readfile(filepath)
+  for _, line in ipairs(content) do
+    -- Buscar: odoo_version = "16.0" o version = "16.0"
+    local version = line:match('odoo_version%s*=%s*["\'](%d+%.%d+)["\']')
+      or line:match('version%s*=%s*["\'](%d+%.%d+)["\']')
+    if version then
+      return version
+    end
+  end
+
+  return nil
+end
+
+---Detecta versión desde common.yaml o devel.yaml (archivos de Doodba)
+---@param root string
+---@return string|nil
+function M._detect_version_from_doodba_yaml(root)
+  local yaml_files = {
+    root .. "/common.yaml",
+    root .. "/devel.yaml",
+    root .. "/prod.yaml",
+  }
+
+  for _, filepath in ipairs(yaml_files) do
+    if M.exists(filepath) then
+      local content = vim.fn.readfile(filepath)
+      local content_str = table.concat(content, "\n")
+
+      -- Buscar imagen con versión: ghcr.io/tecnativa/doodba:16.0 o similar
+      local version = content_str:match("doodba:(%d+%.%d+)")
+        or content_str:match("odoo:(%d+%.%d+)")
+      if version then
+        return version
+      end
+
+      -- Buscar ODOO_VERSION en environment
+      version = content_str:match("ODOO_VERSION[=:]%s*['\"]?(%d+%.%d+)")
+      if version then
+        return version
+      end
+
+      -- Buscar en x-environment o variables
+      version = content_str:match("&odoo_version%s+['\"]?(%d+%.%d+)")
+        or content_str:match("ODOO_VERSION:%s*&[%w_]+%s+['\"]?(%d+%.%d+)")
+      if version then
+        return version
+      end
+    end
   end
 
   return nil
