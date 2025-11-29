@@ -5,6 +5,8 @@
 ---@field lsp odoo.lsp
 ---@field navigation odoo.navigation
 ---@field docker odoo.docker
+---@field templates odoo.templates
+---@field scaffold odoo.scaffold
 ---
 ---Odoo.nvim - Convierte Neovim en un IDE para Odoo 16
 ---Soporta proyectos estándar y Doodba (Docker)
@@ -34,6 +36,8 @@ function M.setup(opts)
   local lsp = require("odoo.lsp")
   local navigation = require("odoo.navigation")
   local docker = require("odoo.docker")
+  local templates = require("odoo.templates")
+  local scaffold = require("odoo.scaffold")
 
   -- Aplicar configuración
   config.setup(opts)
@@ -43,10 +47,17 @@ function M.setup(opts)
   stubs.setup_commands()
   lsp.setup_commands()
   navigation.setup_commands()
+  templates.setup_commands()
+  scaffold.setup_commands()
 
   -- Registrar comandos de Docker si está habilitado
   if cfg.doodba.enabled then
     docker.setup_commands()
+  end
+
+  -- Setup LuaSnip integration para templates si está habilitado y disponible
+  if cfg.templates.enabled and cfg.templates.use_luasnip then
+    templates.setup_luasnip()
   end
 
   -- Configurar keymaps
@@ -343,6 +354,18 @@ M.navigation = setmetatable({}, {
 M.docker = setmetatable({}, {
   __index = function(_, key)
     return require("odoo.docker")[key]
+  end,
+})
+
+M.templates = setmetatable({}, {
+  __index = function(_, key)
+    return require("odoo.templates")[key]
+  end,
+})
+
+M.scaffold = setmetatable({}, {
+  __index = function(_, key)
+    return require("odoo.scaffold")[key]
   end,
 })
 

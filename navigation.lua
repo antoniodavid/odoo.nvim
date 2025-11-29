@@ -444,8 +444,200 @@ function M.setup_keymaps()
         buffer = bufnr,
         desc = "Odoo: Ir a XML ID",
       })
+
+      -- Keymaps adicionales para find references y herencia
+      vim.keymap.set("n", "gr", function()
+        M.find_references()
+      end, {
+        buffer = bufnr,
+        desc = "Odoo: Buscar referencias",
+      })
+
+      vim.keymap.set("n", "gi", function()
+        M.show_inheritance()
+      end, {
+        buffer = bufnr,
+        desc = "Odoo: Mostrar herencia",
+      })
     end,
   })
+
+  -- También configurar keymaps para archivos Python en proyectos Odoo
+  vim.api.nvim_create_autocmd("FileType", {
+    pattern = "python",
+    callback = function(args)
+      local bufnr = args.buf
+
+      -- Solo aplicar en proyectos Odoo
+      if not util.is_odoo_project() then
+        return
+      end
+
+      vim.keymap.set("n", "gr", function()
+        M.find_references()
+      end, {
+        buffer = bufnr,
+        desc = "Odoo: Buscar referencias",
+      })
+
+      vim.keymap.set("n", "gi", function()
+        M.show_inheritance()
+      end, {
+        buffer = bufnr,
+        desc = "Odoo: Mostrar herencia",
+      })
+    end,
+  })
+end
+
+---Busca todas las referencias a un símbolo
+---@param symbol? string Símbolo a buscar (si no se especifica, usa cursor actual)
+function M.find_references(symbol)
+  -- Si no se especifica símbolo, detectar desde el contexto
+  if not symbol then
+    local ft = vim.bo.filetype
+
+    if ft == "xml" then
+      local ctx = M.get_xml_context()
+      if ctx and ctx.value then
+        symbol = ctx.value
+      end
+    elseif ft == "python" then
+      -- En Python, obtener palabra bajo cursor
+      symbol = vim.fn.expand("<cword>")
+    else
+      util.warn("Tipo de archivo no soportado para find references")
+      return
+    end
+  end
+
+  if not symbol or symbol == "" then
+    util.warn("No se pudo detectar símbolo para buscar referencias")
+    return
+  end
+
+  local cfg = config.get()
+
+  -- Buscar referencias del símbolo (en Python y XML)
+  local pattern = vim.pesc(symbol)
+
+  if cfg.navigation.use_telescope then
+    local ok, telescope = pcall(require, "telescope.builtin")
+    if not ok then
+      util.warn("Telescope no disponible")
+      return
+    end
+
+    telescope.grep_string({
+      prompt_title = "Referencias de: " .. symbol,
+      search = pattern,
+      use_regex = true,
+      search_dirs = M._get_search_dirs(),
+    })
+  else
+    M._grep_search(pattern)
+  end
+end
+
+---Muestra el árbol de herencia de un modelo
+---@param model_name? string Nombre del modelo (si no se especifica, usa cursor)
+function M.show_inheritance(model_name)
+  -- Detectar modelo desde contexto si no se especifica
+  if not model_name then
+    local ft = vim.bo.filetype
+
+    if ft == "xml" then
+      local ctx = M.get_xml_context()
+      if ctx and ctx.type == "model" then
+        model_name = ctx.value
+      else
+        model_name = M._find_model_in_buffer()
+      end
+    elseif ft == "python" then
+      -- Buscar _name en el archivo actual
+      local bufnr = vim.api.nvim_get_current_buf()
+      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+
+      for _, line in ipairs(lines) do
+        local name = line:match("_name%s*=%s*['\"]([^'\"]+)['\"]")
+        if name then
+          model_name = name
+          break
+        end
+      end
+    end
+  end
+
+  if not model_name or model_name == "" then
+    util.warn("No se pudo detectar modelo para mostrar herencia")
+    return
+  end
+
+  util.info("Buscando herencia para modelo: " .. model_name)
+
+  -- Buscar modelos que heredan de este
+  local inherit_pattern = "_inherit%s*=%s*['\"]" .. vim.pesc(model_name) .. "['\"]"
+
+  local cfg = config.get()
+  if cfg.navigation.use_telescope then
+    local ok, telescope = pcall(require, "telescope.builtin")
+    if ok then
+      telescope.grep_string({
+        prompt_title = "Herencia de: " .. model_name,
+        search = inherit_pattern,
+        use_regex = true,
+        search_dirs = M._get_search_dirs(),
+      })
+    end
+  else
+    M._grep_search(inherit_pattern)
+  end
+end
+
+---Muestra la cadena de herencia de vistas
+---@param view_id? string XML ID de la vista
+function M.view_inheritance(view_id)
+  -- Detectar view_id desde contexto si no se especifica
+  if not view_id then
+    local ft = vim.bo.filetype
+    if ft == "xml" then
+      local ctx = M.get_xml_context()
+      if ctx and ctx.type == "ref" then
+        view_id = ctx.value
+      end
+    end
+  end
+
+  if not view_id or view_id == "" then
+    -- Pedir al usuario
+    vim.ui.input({ prompt = "XML ID de vista: " }, function(input)
+      if input and input ~= "" then
+        M.view_inheritance(input)
+      end
+    end)
+    return
+  end
+
+  util.info("Buscando vistas que heredan de: " .. view_id)
+
+  -- Buscar vistas que heredan de este XML ID
+  local inherit_pattern = "inherit_id.*" .. vim.pesc(view_id)
+
+  local cfg = config.get()
+  if cfg.navigation.use_telescope then
+    local ok, telescope = pcall(require, "telescope.builtin")
+    if ok then
+      telescope.grep_string({
+        prompt_title = "Herencia de vista: " .. view_id,
+        search = inherit_pattern,
+        use_regex = true,
+        search_dirs = M._get_search_dirs(),
+        type_filter = "xml",
+      })
+    end
+  else
+    M._grep_search(inherit_pattern, "xml")
+  end
 end
 
 ---Registra los comandos del módulo
@@ -473,6 +665,28 @@ function M.setup_commands()
   end, {
     nargs = 1,
     desc = "Navega a la definición de un campo",
+  })
+
+  -- Nuevos comandos para find references y herencia
+  vim.api.nvim_create_user_command("OdooFindReferences", function(opts)
+    M.find_references(opts.args ~= "" and opts.args or nil)
+  end, {
+    nargs = "?",
+    desc = "Buscar todas las referencias a un símbolo",
+  })
+
+  vim.api.nvim_create_user_command("OdooShowInheritance", function(opts)
+    M.show_inheritance(opts.args ~= "" and opts.args or nil)
+  end, {
+    nargs = "?",
+    desc = "Mostrar árbol de herencia de modelo",
+  })
+
+  vim.api.nvim_create_user_command("OdooViewInheritance", function(opts)
+    M.view_inheritance(opts.args ~= "" and opts.args or nil)
+  end, {
+    nargs = "?",
+    desc = "Mostrar cadena de herencia de vistas",
   })
 end
 

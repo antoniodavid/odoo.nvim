@@ -219,6 +219,23 @@ M.defaults = {
     default = "16.0",
     supported = { "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0", "master" },
   },
+
+  -- Configuración de templates y snippets
+  templates = {
+    enabled = true,
+    expand_on_tab = true,
+    use_luasnip = true,  -- Usar LuaSnip si está disponible
+  },
+
+  -- Configuración de scaffolding
+  scaffolding = {
+    enabled = true,
+    templates_dir = nil,  -- Custom templates directory (nil = usar built-in)
+    default_license = "LGPL-3",
+    default_author = "Your Company",
+    auto_init_file = true,  -- Auto-generar __init__.py
+    auto_manifest = true,   -- Auto-generar __manifest__.py
+  },
 }
 
 ---@type odoo.Config
