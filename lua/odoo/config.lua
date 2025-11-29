@@ -95,6 +95,11 @@ M.VERSION_INFO = {
     stubs_branch = "18.0",
     manifest = "__manifest__.py",
   },
+  ["19.0"] = {
+    python = "3.12",
+    stubs_branch = "master", -- Usar master hasta que exista rama 19.0
+    manifest = "__manifest__.py",
+  },
   ["master"] = {
     python = "3.12",
     stubs_branch = "master",
@@ -217,7 +222,7 @@ M.defaults = {
   version = {
     auto_detect = true,
     default = "16.0",
-    supported = { "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0", "master" },
+    supported = { "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0", "19.0", "master" },
   },
 
   -- Configuración de templates y snippets
@@ -253,11 +258,47 @@ function M.get()
   return M.options
 end
 
----Obtiene información de una versión específica
+---Obtiene información de una versión específica con fallback
 ---@param version string
+---@param use_fallback? boolean Si es true, usa fallback para versiones desconocidas
 ---@return table|nil
-function M.get_version_info(version)
-  return M.VERSION_INFO[version]
+---@return boolean is_fallback
+function M.get_version_info(version, use_fallback)
+  local info = M.VERSION_INFO[version]
+  if info then
+    return info, false
+  end
+
+  -- Si no se encuentra y se permite fallback
+  if use_fallback then
+    -- Para versiones futuras (20.0+), usar la última versión conocida
+    local version_num = tonumber(version:match("^(%d+)%.0$"))
+    if version_num and version_num >= 20 then
+      -- Usar 19.0 como base para versiones futuras
+      return M.VERSION_INFO["19.0"], true
+    end
+
+    -- Para versiones entre las soportadas, buscar la más cercana inferior
+    if version_num then
+      local closest = nil
+      local closest_num = 0
+      for v, vinfo in pairs(M.VERSION_INFO) do
+        local v_num = tonumber(v:match("^(%d+)%.0$"))
+        if v_num and v_num < version_num and v_num > closest_num then
+          closest = vinfo
+          closest_num = v_num
+        end
+      end
+      if closest then
+        return closest, true
+      end
+    end
+
+    -- Fallback final: usar 16.0
+    return M.VERSION_INFO["16.0"], true
+  end
+
+  return nil, false
 end
 
 ---Verifica si una versión está soportada
@@ -282,7 +323,7 @@ end
 ---@param version string
 ---@return string
 function M.get_python_version(version)
-  local info = M.VERSION_INFO[version]
+  local info, is_fallback = M.get_version_info(version, true)
   if info then
     return info.python
   end

@@ -1,6 +1,6 @@
 # 🐍 odoo.nvim
 
-> Convierte Neovim en un IDE completo para **todas las versiones de Odoo** con configuración Zero-Config
+> Convierte Neovim en un IDE completo para **todas las versiones de Odoo (8.0-19.0+)** con configuración Zero-Config
 > Soporta proyectos **estándar** y **Doodba** (Docker)
 
 ![Neovim](https://img.shields.io/badge/NeoVim-%2357A143.svg?&style=for-the-badge&logo=neovim&logoColor=white)
@@ -22,19 +22,20 @@
 
 ## 📦 Versiones Soportadas
 
-| Versión | Python | Stubs | Estado |
-|---------|--------|-------|--------|
-| 18.0 | 3.12 | ✅ | Completo |
-| 17.0 | 3.10 | ✅ | Completo |
-| 16.0 | 3.10 | ✅ | Completo |
-| 15.0 | 3.8 | ✅ | Completo |
-| 14.0 | 3.8 | ✅ | Completo |
-| 13.0 | 3.6 | ✅ | Completo |
-| 12.0 | 3.6 | ✅ | Completo |
-| 11.0 | 3.5 | 🔧 | stubgen |
-| 10.0 | 2.7 | 🔧 | stubgen |
-| 9.0 | 2.7 | 🔧 | stubgen |
-| 8.0 | 2.7 | 🔧 | stubgen |
+| Versión | Python | Stubs | Estado   |
+| ------- | ------ | ----- | -------- |
+| 19.0    | 3.12   | ✅    | Completo |
+| 18.0    | 3.12   | ✅    | Completo |
+| 17.0    | 3.10   | ✅    | Completo |
+| 16.0    | 3.10   | ✅    | Completo |
+| 15.0    | 3.8    | ✅    | Completo |
+| 14.0    | 3.8    | ✅    | Completo |
+| 13.0    | 3.6    | ✅    | Completo |
+| 12.0    | 3.6    | ✅    | Completo |
+| 11.0    | 3.5    | 🔧    | stubgen  |
+| 10.0    | 2.7    | 🔧    | stubgen  |
+| 9.0     | 2.7    | 🔧    | stubgen  |
+| 8.0     | 2.7    | 🔧    | stubgen  |
 
 > 🔧 = Puedes generar stubs dinámicamente con `:OdooGenerateStubs`
 
@@ -65,7 +66,7 @@
 
 ```lua
 {
-  "tu-usuario/odoo.nvim",
+  "antoniodavid/odoo.nvim",
   dependencies = {
     "neovim/nvim-lspconfig",
     "nvim-telescope/telescope.nvim", -- opcional
@@ -87,7 +88,7 @@
 
 ```lua
 {
-  "tu-usuario/odoo.nvim",
+  "antoniodavid/odoo.nvim",
   dependencies = {
     "neovim/nvim-lspconfig",
     "nvim-telescope/telescope.nvim",
@@ -213,18 +214,18 @@ proyecto-doodba/
 
 ### Comandos Docker
 
-| Comando | Descripción |
-|---------|-------------|
-| `:OdooDockerUp[!]` | Inicia contenedores (`!` para rebuild) |
-| `:OdooDockerDown` | Detiene contenedores |
-| `:OdooDockerRestart [service]` | Reinicia servicio de Odoo |
-| `:OdooDockerShell` | Abre bash en el contenedor de Odoo |
-| `:OdooDockerOdooShell` | Abre `odoo shell` en el contenedor |
-| `:OdooDockerLogs [n]` | Muestra logs (últimas n líneas) |
-| `:OdooDockerStatus` | Muestra estado de contenedores |
-| `:OdooDockerBuild[!]` | Construye contenedores (`!` para --no-cache) |
-| `:OdooDockerExec {cmd}` | Ejecuta comando en contenedor |
-| `:OdooUpdateModule {mod}` | Actualiza módulo con `-u` |
+| Comando                        | Descripción                                  |
+| ------------------------------ | -------------------------------------------- |
+| `:OdooDockerUp[!]`             | Inicia contenedores (`!` para rebuild)       |
+| `:OdooDockerDown`              | Detiene contenedores                         |
+| `:OdooDockerRestart [service]` | Reinicia servicio de Odoo                    |
+| `:OdooDockerShell`             | Abre bash en el contenedor de Odoo           |
+| `:OdooDockerOdooShell`         | Abre `odoo shell` en el contenedor           |
+| `:OdooDockerLogs [n]`          | Muestra logs (últimas n líneas)              |
+| `:OdooDockerStatus`            | Muestra estado de contenedores               |
+| `:OdooDockerBuild[!]`          | Construye contenedores (`!` para --no-cache) |
+| `:OdooDockerExec {cmd}`        | Ejecuta comando en contenedor                |
+| `:OdooUpdateModule {mod}`      | Actualiza módulo con `-u`                    |
 
 ## 📦 Gestión de Stubs
 
@@ -265,37 +266,37 @@ Los stubs generados se guardan en `~/.local/share/nvim/odoo-stubs/generated-{ver
 
 ### Comandos de Stubs
 
-| Comando | Descripción |
-|---------|-------------|
+| Comando                        | Descripción                                               |
+| ------------------------------ | --------------------------------------------------------- |
 | `:OdooDownloadStubs [version]` | Descarga stubs (auto-detecta versión si no se especifica) |
-| `:OdooDownloadStubs!` | Fuerza actualización |
-| `:OdooDownloadAllStubs` | Descarga stubs para todas las versiones |
-| `:OdooRemoveStubs [version]` | Elimina stubs (todos si no se especifica versión) |
-| `:OdooStubsInfo` | Muestra información de stubs instalados |
-| `:OdooGenerateStubs [path]` | Genera stubs dinámicamente con stubgen |
+| `:OdooDownloadStubs!`          | Fuerza actualización                                      |
+| `:OdooDownloadAllStubs`        | Descarga stubs para todas las versiones                   |
+| `:OdooRemoveStubs [version]`   | Elimina stubs (todos si no se especifica versión)         |
+| `:OdooStubsInfo`               | Muestra información de stubs instalados                   |
+| `:OdooGenerateStubs [path]`    | Genera stubs dinámicamente con stubgen                    |
 
 ## 🎮 Comandos Generales
 
-| Comando | Descripción |
-|---------|-------------|
-| `:OdooInfo` | Muestra estado completo del plugin |
-| `:OdooHealth` | Ejecuta diagnóstico |
-| `:OdooLspReload` | Recarga configuración LSP |
-| `:OdooLspInfo` | Muestra configuración LSP actual |
-| `:OdooGotoModel {model}` | Navega a definición de modelo |
-| `:OdooGotoXmlId {xml_id}` | Navega a XML ID |
-| `:OdooGotoField {field}` | Navega a definición de campo |
-| `:OdooGeneratePyrightConfig` | Genera pyrightconfig.json |
+| Comando                      | Descripción                        |
+| ---------------------------- | ---------------------------------- |
+| `:OdooInfo`                  | Muestra estado completo del plugin |
+| `:OdooHealth`                | Ejecuta diagnóstico                |
+| `:OdooLspReload`             | Recarga configuración LSP          |
+| `:OdooLspInfo`               | Muestra configuración LSP actual   |
+| `:OdooGotoModel {model}`     | Navega a definición de modelo      |
+| `:OdooGotoXmlId {xml_id}`    | Navega a XML ID                    |
+| `:OdooGotoField {field}`     | Navega a definición de campo       |
+| `:OdooGeneratePyrightConfig` | Genera pyrightconfig.json          |
 
 ## ⌨️ Keymaps
 
 En archivos **XML** dentro de proyectos Odoo:
 
-| Keymap | Acción |
-|--------|--------|
-| `gd` | Ir a definición (modelo, campo, o XML ID según contexto) |
-| `gm` | Ir al modelo del contexto actual |
-| `gx` | Ir a XML ID |
+| Keymap | Acción                                                   |
+| ------ | -------------------------------------------------------- |
+| `gd`   | Ir a definición (modelo, campo, o XML ID según contexto) |
+| `gm`   | Ir al modelo del contexto actual                         |
+| `gx`   | Ir a XML ID                                              |
 
 ### Elementos navegables en XML
 
@@ -321,6 +322,7 @@ require("lspconfig").pyright.setup({
 ## 🩺 Diagnóstico
 
 Ejecuta `:checkhealth odoo` para verificar:
+
 - Versión de Neovim
 - Dependencias instaladas
 - stubgen disponible (para generación dinámica)

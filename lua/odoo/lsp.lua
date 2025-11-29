@@ -23,23 +23,37 @@ function M.generate_standard_settings(root_dir, version)
   -- Añadir la raíz del proyecto
   table.insert(extra_paths, root_dir)
 
+  -- Obtener versión de Python recomendada (con fallback)
+  local version_info, is_fallback = config.get_version_info(version, true)
+  local python_version = version_info and version_info.python or "3.10"
+
+  if is_fallback then
+    util.warn("Usando configuración fallback para Odoo " .. version)
+  end
+
   -- Añadir stubs si existen para esta versión
   local stub_path = nil
-  if stubs.installed(version) then
+  local stubs_branch = version_info and version_info.stubs_branch
+  
+  if stubs_branch and stubs.installed(version) then
     stub_path = stubs.get_path(version)
-    table.insert(extra_paths, stub_path .. "/odoo-stubs")
+    -- Añadir el directorio odoo-stubs a extraPaths para que Pyright lo encuentre
+    local odoo_stubs_path = stub_path .. "/odoo-stubs"
+    if util.exists(odoo_stubs_path) then
+      table.insert(extra_paths, odoo_stubs_path)
+    end
   elseif stubs.installed() then
     -- Fallback: usar cualquier versión de stubs disponible
     local installed = stubs.get_installed_versions()
     if #installed > 0 then
       stub_path = stubs.get_path(installed[1])
-      table.insert(extra_paths, stub_path .. "/odoo-stubs")
+      local odoo_stubs_path = stub_path .. "/odoo-stubs"
+      if util.exists(odoo_stubs_path) then
+        table.insert(extra_paths, odoo_stubs_path)
+      end
       util.debug("Usando stubs de v" .. installed[1] .. " como fallback para v" .. version)
     end
   end
-
-  -- Obtener versión de Python recomendada
-  local python_version = config.get_python_version(version)
 
   ---@type table
   local settings = {
@@ -58,6 +72,7 @@ function M.generate_standard_settings(root_dir, version)
   }
 
   -- Añadir stubPath solo si los stubs existen
+  -- stubPath debe apuntar al directorio base que contiene odoo-stubs/
   if stub_path then
     settings.python.analysis.stubPath = stub_path
   end
@@ -91,21 +106,36 @@ function M.generate_doodba_settings(root_dir, version)
     end
   end
 
+  -- Obtener versión de Python recomendada (con fallback)
+  local version_info, is_fallback = config.get_version_info(version, true)
+  local python_version = version_info and version_info.python or "3.10"
+
+  if is_fallback then
+    util.warn("Usando configuración fallback para Odoo " .. version)
+  end
+
   -- Añadir stubs si existen para esta versión
   local stub_path = nil
-  if stubs.installed(version) then
+  local stubs_branch = version_info and version_info.stubs_branch
+  
+  if stubs_branch and stubs.installed(version) then
     stub_path = stubs.get_path(version)
-    table.insert(extra_paths, stub_path .. "/odoo-stubs")
+    -- Añadir el directorio odoo-stubs a extraPaths para que Pyright lo encuentre
+    local odoo_stubs_path = stub_path .. "/odoo-stubs"
+    if util.exists(odoo_stubs_path) then
+      table.insert(extra_paths, odoo_stubs_path)
+    end
   elseif stubs.installed() then
     local installed = stubs.get_installed_versions()
     if #installed > 0 then
       stub_path = stubs.get_path(installed[1])
-      table.insert(extra_paths, stub_path .. "/odoo-stubs")
+      local odoo_stubs_path = stub_path .. "/odoo-stubs"
+      if util.exists(odoo_stubs_path) then
+        table.insert(extra_paths, odoo_stubs_path)
+      end
+      util.debug("Usando stubs de v" .. installed[1] .. " como fallback para v" .. version)
     end
   end
-
-  -- Obtener versión de Python recomendada
-  local python_version = config.get_python_version(version)
 
   ---@type table
   local settings = {
@@ -131,6 +161,7 @@ function M.generate_doodba_settings(root_dir, version)
   }
 
   -- Añadir stubPath solo si los stubs existen
+  -- stubPath debe apuntar al directorio base que contiene odoo-stubs/
   if stub_path then
     settings.python.analysis.stubPath = stub_path
   end

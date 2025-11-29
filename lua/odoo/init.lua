@@ -152,7 +152,7 @@ function M._setup_global_commands()
   })
 end
 
----Muestra información del estado del plugin
+---Muestra información del estado del plugin en un buffer flotante
 function M.show_info()
   local util = require("odoo.util")
   local stubs = require("odoo.stubs")
@@ -215,6 +215,41 @@ function M.show_info()
   table.insert(lines, "  Doodba support: " .. (cfg.doodba.enabled and "✓" or "✗"))
   table.insert(lines, "  Version auto-detect: " .. (cfg.version.auto_detect and "✓" or "✗"))
 
+  -- Mostrar estado del LSP
+  table.insert(lines, "")
+  table.insert(lines, "Estado LSP:")
+  local lsp_clients = vim.lsp.get_clients({ bufnr = 0 })
+  local pyright_active = false
+  local lsp_stub_path = nil
+  
+  for _, client in ipairs(lsp_clients) do
+    if client.name == "pyright" or client.name == "basedpyright" then
+      pyright_active = true
+      local settings = client.config.settings or {}
+      local python = settings.python or {}
+      local analysis = python.analysis or {}
+      lsp_stub_path = analysis.stubPath
+      
+      table.insert(lines, "  ✓ " .. client.name .. " activo")
+      if lsp_stub_path then
+        table.insert(lines, "  Stub path: " .. util.format_path(lsp_stub_path))
+      end
+      break
+    end
+  end
+  
+  if not pyright_active then
+    table.insert(lines, "  ✗ LSP no activo (abre un archivo .py)")
+  end
+  
+  -- Advertencia si no hay stubs para la versión actual
+  if root and #installed_versions > 0 then
+    local current_version = util.get_odoo_version(root)
+    if not vim.tbl_contains(installed_versions, current_version) then
+      table.insert(lines, "  ⚠ Sin stubs para v" .. current_version .. " - ejecuta :OdooDownloadStubs")
+    end
+  end
+
   -- Mostrar info de Docker si es Doodba
   if project_type == "doodba" and root then
     table.insert(lines, "")
@@ -251,9 +286,48 @@ function M.show_info()
 
   table.insert(lines, "")
   table.insert(lines, "═══════════════════════════════════════════════════════════")
+  table.insert(lines, "")
+  table.insert(lines, "Presiona 'q' o <Esc> para cerrar")
 
-  for _, line in ipairs(lines) do
-    util.info(line)
+  -- Crear buffer flotante
+  local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.api.nvim_buf_set_option(buf, "bufhidden", "wipe")
+
+  -- Calcular dimensiones de la ventana
+  local width = 63
+  local height = #lines
+  local ui = vim.api.nvim_list_uis()[1]
+  local win_width = ui.width
+  local win_height = ui.height
+
+  -- Centrar la ventana
+  local row = math.floor((win_height - height) / 2)
+  local col = math.floor((win_width - width) / 2)
+
+  -- Configuración de la ventana flotante
+  local opts = {
+    relative = "editor",
+    width = width,
+    height = height,
+    row = row,
+    col = col,
+    style = "minimal",
+    border = "rounded",
+    title = " Odoo Info ",
+    title_pos = "center",
+  }
+
+  local win = vim.api.nvim_open_win(buf, true, opts)
+
+  -- Configurar highlight para el buffer
+  vim.api.nvim_win_set_option(win, "winhl", "Normal:Normal,FloatBorder:FloatBorder")
+
+  -- Keymaps para cerrar la ventana
+  local close_keys = { "q", "<Esc>", "<CR>" }
+  for _, key in ipairs(close_keys) do
+    vim.api.nvim_buf_set_keymap(buf, "n", key, ":close<CR>", { noremap = true, silent = true })
   end
 end
 
