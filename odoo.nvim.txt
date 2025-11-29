@@ -1,0 +1,383 @@
+*odoo.nvim.txt*    IDE para Odoo (todas las versiones) en Neovim
+
+==============================================================================
+CONTENTS                                                    *odoo.nvim-contents*
+
+    1. Introducción ................................ |odoo.nvim-introduction|
+    2. Requisitos .................................. |odoo.nvim-requirements|
+    3. Instalación ................................. |odoo.nvim-installation|
+    4. Versiones ................................... |odoo.nvim-versions|
+    5. Configuración ............................... |odoo.nvim-configuration|
+    6. Comandos .................................... |odoo.nvim-commands|
+    7. Docker/Doodba ............................... |odoo.nvim-docker|
+    8. Keymaps ..................................... |odoo.nvim-keymaps|
+    9. API ......................................... |odoo.nvim-api|
+    10. Diagnóstico ................................ |odoo.nvim-health|
+
+==============================================================================
+INTRODUCCIÓN                                            *odoo.nvim-introduction*
+
+odoo.nvim convierte Neovim en un IDE completo para desarrollo en Odoo.
+Soporta todas las versiones de Odoo (8.0 a 18.0+) y proyectos Doodba.
+
+Características principales:
+- Configuración Zero-Config automática
+- Soporte multi-versión con detección automática
+- Inyección de LSP para Pyright/Basedpyright
+- Gestión automática de stubs tipados por versión
+- Navegación inteligente de XML a Python
+- Integración con Telescope
+- Soporte completo para Doodba (Docker)
+
+==============================================================================
+REQUISITOS                                              *odoo.nvim-requirements*
+
+Obligatorios:~
+- Neovim >= 0.9.0
+- nvim-lspconfig
+- pyright o basedpyright
+- git
+
+Para Doodba:~
+- Docker
+- docker-compose o docker compose
+
+Opcionales (recomendados):~
+- telescope.nvim (búsquedas avanzadas)
+- nvim-treesitter (parsing XML preciso)
+
+==============================================================================
+INSTALACIÓN                                             *odoo.nvim-installation*
+
+Con lazy.nvim: >lua
+
+    {
+      "tu-usuario/odoo.nvim",
+      dependencies = {
+        "neovim/nvim-lspconfig",
+        "nvim-telescope/telescope.nvim",
+        "nvim-treesitter/nvim-treesitter",
+      },
+      ft = { "python", "xml" },
+      opts = {},
+    }
+<
+
+==============================================================================
+VERSIONES                                                  *odoo.nvim-versions*
+
+Versiones de Odoo soportadas:
+
+    Versión    Python    Stubs    Estado
+    ───────    ──────    ─────    ──────
+    18.0       3.12      ✓        Completo
+    17.0       3.10      ✓        Completo
+    16.0       3.10      ✓        Completo
+    15.0       3.8       ✓        Completo
+    14.0       3.8       ✓        Completo
+    13.0       3.6       ✓        Completo
+    12.0       3.6       ✓        Completo
+    11.0       3.5       ✗        Básico
+    10.0       2.7       ✗        Legacy
+    9.0        2.7       ✗        Legacy
+    8.0        2.7       ✗        Legacy
+
+La versión se detecta automáticamente buscando en:
+- release.py (archivo oficial de Odoo)
+- docker-compose.yml (imagen Docker)
+- .copier-answers.yml (Doodba)
+- requirements.txt
+- .env
+
+==============================================================================
+CONFIGURACIÓN                                          *odoo.nvim-configuration*
+
+Configuración por defecto: >lua
+
+    require("odoo").setup({
+      stubs = {
+        repo = "https://github.com/MokaTour/odoo-stubs",
+        branch = nil, -- nil = auto-detectar
+        auto_download = true,
+        fallback_branch = "16.0",
+      },
+      lsp = {
+        auto_inject = true,
+        server = "pyright",
+        analysis = {
+          typeCheckingMode = "basic",
+        },
+      },
+      navigation = {
+        use_telescope = true,
+        xml_goto_definition = true,
+        keymaps = {
+          goto_definition = "gd",
+          goto_xml_id = "gx",
+          goto_model = "gm",
+        },
+      },
+      detection = {
+        markers = { "odoo-bin", "__manifest__.py", "__openerp__.py" },
+        doodba_markers = { "repos.yaml", "addons.yaml" },
+        auto_detect = true,
+      },
+      version = {
+        auto_detect = true,
+        default = "16.0",
+      },
+      doodba = {
+        enabled = true,
+        docker_service = "odoo",
+        auto_detect_service = true,
+      },
+    })
+<
+
+                                                        *odoo.nvim-config-stubs*
+stubs.repo~
+    URL del repositorio de stubs.
+    Default: "https://github.com/MokaTour/odoo-stubs"
+
+stubs.branch~
+    Rama del repositorio. nil para auto-detectar según versión.
+    Default: nil
+
+stubs.auto_download~
+    Preguntar si descargar stubs al detectar proyecto Odoo.
+    Default: true
+
+stubs.fallback_branch~
+    Rama por defecto si no se puede detectar versión.
+    Default: "16.0"
+
+                                                       *odoo.nvim-config-version*
+version.auto_detect~
+    Detectar versión de Odoo automáticamente.
+    Default: true
+
+version.default~
+    Versión por defecto si no se detecta.
+    Default: "16.0"
+
+                                                          *odoo.nvim-config-lsp*
+lsp.auto_inject~
+    Inyectar configuración automáticamente en pyright.
+    Default: true
+
+lsp.server~
+    Servidor LSP a configurar: "pyright" o "basedpyright".
+    Default: "pyright"
+
+lsp.analysis.typeCheckingMode~
+    Modo de chequeo de tipos: "off", "basic", "standard", "strict".
+    Default: "basic"
+
+                                                       *odoo.nvim-config-doodba*
+doodba.enabled~
+    Habilitar soporte para proyectos Doodba.
+    Default: true
+
+doodba.docker_service~
+    Nombre del servicio Docker para Odoo.
+    Default: "odoo"
+
+doodba.auto_detect_service~
+    Detectar automáticamente el nombre del servicio.
+    Default: true
+
+==============================================================================
+COMANDOS                                                    *odoo.nvim-commands*
+
+Comandos de Stubs:~
+
+                                                          *:OdooDownloadStubs*
+:OdooDownloadStubs[!] [version]
+    Descarga los stubs de Odoo para la versión especificada.
+    Si no se especifica versión, usa la detectada automáticamente.
+    Usa ! para forzar actualización.
+
+                                                       *:OdooDownloadAllStubs*
+:OdooDownloadAllStubs
+    Descarga stubs para todas las versiones soportadas.
+
+                                                           *:OdooRemoveStubs*
+:OdooRemoveStubs [version]
+    Elimina los stubs. Si se especifica versión, solo elimina esa.
+
+                                                             *:OdooStubsInfo*
+:OdooStubsInfo
+    Muestra información de los stubs instalados.
+
+Comandos de LSP:~
+
+                                                             *:OdooLspReload*
+:OdooLspReload
+    Recarga la configuración LSP para el buffer actual.
+
+                                                               *:OdooLspInfo*
+:OdooLspInfo
+    Muestra la configuración LSP actual de pyright.
+
+Comandos Generales:~
+
+                                                                  *:OdooInfo*
+:OdooInfo
+    Muestra estado general del plugin y proyecto.
+
+                                                                *:OdooHealth*
+:OdooHealth
+    Ejecuta diagnóstico del plugin.
+
+                                                             *:OdooGotoModel*
+:OdooGotoModel {model}
+    Navega a la definición de un modelo.
+    Ejemplo: :OdooGotoModel res.partner
+
+                                                             *:OdooGotoXmlId*
+:OdooGotoXmlId {xml_id}
+    Navega a un registro XML por su ID.
+    Ejemplo: :OdooGotoXmlId base.main_company
+
+                                                             *:OdooGotoField*
+:OdooGotoField {field}
+    Navega a la definición de un campo.
+    Ejemplo: :OdooGotoField partner_id
+
+                                                  *:OdooGeneratePyrightConfig*
+:OdooGeneratePyrightConfig
+    Genera un archivo pyrightconfig.json para el proyecto.
+
+==============================================================================
+DOCKER/DOODBA                                                *odoo.nvim-docker*
+
+Comandos disponibles para proyectos Doodba:
+
+                                                            *:OdooDockerUp*
+:OdooDockerUp[!]
+    Inicia los contenedores Docker. Usa ! para rebuild.
+
+                                                          *:OdooDockerDown*
+:OdooDockerDown
+    Detiene los contenedores Docker.
+
+                                                       *:OdooDockerRestart*
+:OdooDockerRestart [service]
+    Reinicia el servicio de Odoo (o el servicio especificado).
+
+                                                         *:OdooDockerShell*
+:OdooDockerShell
+    Abre un shell bash en el contenedor de Odoo.
+
+                                                     *:OdooDockerOdooShell*
+:OdooDockerOdooShell
+    Abre un Odoo shell interactivo en el contenedor.
+
+                                                          *:OdooDockerLogs*
+:OdooDockerLogs [n]
+    Muestra los logs del contenedor de Odoo.
+    Opcionalmente especifica el número de líneas.
+
+                                                        *:OdooDockerStatus*
+:OdooDockerStatus
+    Muestra el estado de los contenedores.
+
+                                                         *:OdooDockerBuild*
+:OdooDockerBuild[!]
+    Construye los contenedores. Usa ! para --no-cache.
+
+                                                          *:OdooDockerExec*
+:OdooDockerExec {comando}
+    Ejecuta un comando en el contenedor de Odoo.
+
+                                                        *:OdooUpdateModule*
+:OdooUpdateModule {modulo}
+    Actualiza un módulo de Odoo usando odoo -u.
+
+==============================================================================
+KEYMAPS                                                      *odoo.nvim-keymaps*
+
+En archivos XML dentro de proyectos Odoo:
+
+gd                                                     *odoo.nvim-keymap-gd*
+    Ir a definición según el contexto del cursor:
+    - En model="..." → clase Python con _name = '...'
+    - En <field name="..."/> → definición del campo
+    - En ref="..." → registro XML
+
+gm                                                     *odoo.nvim-keymap-gm*
+    Ir al modelo del contexto actual.
+
+gx                                                     *odoo.nvim-keymap-gx*
+    Ir a XML ID.
+
+==============================================================================
+API                                                            *odoo.nvim-api*
+
+                                                          *odoo.setup()*
+odoo.setup({opts})
+    Inicializa el plugin con la configuración dada.
+
+                                                        *odoo.stubs.download()*
+odoo.stubs.download({opts})
+    Descarga los stubs de Odoo.
+    Opciones:
+    - version: string - Versión específica
+    - force: boolean - Forzar actualización
+    - on_complete: function(success) - Callback al completar
+
+                                                       *odoo.stubs.installed()*
+odoo.stubs.installed([version])
+    Retorna true si los stubs están instalados.
+    Si se especifica versión, verifica esa versión específica.
+
+                                               *odoo.stubs.get_installed_versions()*
+odoo.stubs.get_installed_versions()
+    Retorna tabla con las versiones de stubs instaladas.
+
+                                                 *odoo.util.detect_odoo_version()*
+odoo.util.detect_odoo_version(root)
+    Detecta la versión de Odoo en un proyecto.
+
+                                                      *odoo.util.get_odoo_version()*
+odoo.util.get_odoo_version([root])
+    Retorna la versión de Odoo (detectada o por defecto).
+
+                                                    *odoo.navigation.goto_model()*
+odoo.navigation.goto_model({model_name})
+    Navega a la definición de un modelo.
+
+                                                    *odoo.navigation.goto_field()*
+odoo.navigation.goto_field({field_name}, {model_name?})
+    Navega a la definición de un campo.
+
+                                                   *odoo.navigation.goto_xml_id()*
+odoo.navigation.goto_xml_id({xml_id})
+    Navega a un XML ID.
+
+                                                      *odoo.util.is_odoo_project()*
+odoo.util.is_odoo_project()
+    Retorna true si el directorio actual es un proyecto Odoo.
+
+                                                       *odoo.util.get_odoo_root()*
+odoo.util.get_odoo_root()
+    Retorna la ruta raíz del proyecto Odoo y el tipo ("standard" o "doodba").
+
+                                                     *odoo.docker.is_running()*
+odoo.docker.is_running(root)
+    Retorna true si los contenedores Docker están corriendo.
+
+==============================================================================
+DIAGNÓSTICO                                                 *odoo.nvim-health*
+
+Ejecuta :checkhealth odoo para verificar:
+- Versión de Neovim
+- Dependencias instaladas (treesitter, telescope, lspconfig)
+- Docker y docker-compose
+- Stubs instalados por versión
+- Tipo de proyecto detectado
+- Versión de Odoo detectada
+- Configuración de LSP activa
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
