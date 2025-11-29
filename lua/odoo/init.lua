@@ -348,7 +348,9 @@ function M.health_check()
     { name = "Treesitter", check = function() return pcall(require, "nvim-treesitter") end },
     { name = "Treesitter XML", check = function()
         local ok, parsers = pcall(require, "nvim-treesitter.parsers")
-        return ok and parsers.has_parser("xml")
+        if not ok then return false end
+        -- Intentar obtener el parser de XML
+        return pcall(parsers.get_parser, "xml")
       end },
     { name = "Telescope", check = function() return pcall(require, "telescope") end },
     { name = "lspconfig", check = function() return pcall(require, "lspconfig") end },
