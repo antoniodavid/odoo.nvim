@@ -258,9 +258,14 @@ end
 function M.find_model_definitions(model_name)
   local cfg = config.get()
   
-  -- Buscar tanto _name como _inherit
-  local name_pattern = "_name%s*=%s*['\"]" .. vim.pesc(model_name) .. "['\"]"
-  local inherit_pattern = "_inherit%s*=.*['\"]" .. vim.pesc(model_name) .. "['\"]"
+  -- Escapar puntos en el nombre del modelo para regex
+  local escaped_model = model_name:gsub("%.", "\\.")
+  
+  -- Buscar tanto _name como _inherit usando regex de ripgrep
+  -- \s* = espacios en blanco (0 o más)
+  -- ['""] = comillas simples o dobles
+  local name_pattern = "_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]"
+  local inherit_pattern = "_inherit\\s*=.*['\"]" .. escaped_model .. "['\"]"
   
   -- Combinar ambos patrones con OR
   local combined_pattern = "(" .. name_pattern .. "|" .. inherit_pattern .. ")"
