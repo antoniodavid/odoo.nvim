@@ -841,6 +841,8 @@ function M.get_compose_cmd()
   end
 
   return nil
+end
+
 ---Muestra una ventana flotante con información
 ---@param lines string[] Líneas de texto a mostrar
 ---@param opts? {title?: string, width?: number} Opciones de la ventana
