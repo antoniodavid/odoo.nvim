@@ -272,6 +272,12 @@ function M.show_info()
   table.insert(lines, "  " .. cfg.navigation.keymaps.goto_xml_id .. " - Ir a XML ID")
 
   table.insert(lines, "")
+  table.insert(lines, "Keymaps (en Python):")
+  table.insert(lines, "  " .. cfg.navigation.keymaps.goto_model .. " - Ir a definiciones de modelo")
+  table.insert(lines, "  gr - Buscar referencias")
+  table.insert(lines, "  gi - Mostrar herencia")
+
+  table.insert(lines, "")
   table.insert(lines, "Versiones de Odoo soportadas:")
   table.insert(lines, "  " .. table.concat(cfg.version.supported, ", "))
 

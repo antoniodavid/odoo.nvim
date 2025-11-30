@@ -841,8 +841,6 @@ function M.get_compose_cmd()
   end
 
   return nil
-end
-
 ---Muestra una ventana flotante con información
 ---@param lines string[] Líneas de texto a mostrar
 ---@param opts? {title?: string, width?: number} Opciones de la ventana
@@ -904,6 +902,39 @@ function M.show_float_window(lines, opts)
   for _, key in ipairs(close_keys) do
     vim.api.nvim_buf_set_keymap(buf, "n", key, ":close<CR>", { noremap = true, silent = true })
   end
+end
+
+---Extrae el nombre del modelo bajo el cursor en archivos Python
+---@return string|nil model_name
+function M.extract_model_name_at_cursor()
+  local line = vim.api.nvim_get_current_line()
+  local col = vim.api.nvim_win_get_cursor(0)[2]
+  
+  -- Buscar strings en la línea (single o double quotes)
+  local patterns = {
+    { pattern = "'([%w%.]+)'", quote_len = 1 },  -- Single quotes
+    { pattern = '"([%w%.]+)"', quote_len = 1 },  -- Double quotes
+  }
+  
+  for _, p in ipairs(patterns) do
+    local start_idx = 1
+    while true do
+      local match_start, match_end, model_name = line:find(p.pattern, start_idx)
+      if not match_start then break end
+      
+      -- Verificar si el cursor está dentro de este match
+      if col >= match_start - 1 and col <= match_end then
+        -- Verificar que sea un nombre de modelo válido (contiene punto)
+        if model_name and model_name:match("^%w+%.%w+") then
+          return model_name
+        end
+      end
+      
+      start_idx = match_end + 1
+    end
+  end
+  
+  return nil
 end
 
 return M

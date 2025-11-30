@@ -252,6 +252,44 @@ function M.goto_model(model_name)
   end
 end
 
+---Navega a todas las definiciones de un modelo (incluyendo herencias)
+---Busca tanto _name como _inherit para el modelo especificado
+---@param model_name string Nombre técnico del modelo
+function M.find_model_definitions(model_name)
+  local cfg = config.get()
+  
+  -- Buscar tanto _name como _inherit
+  local name_pattern = "_name%s*=%s*['\"]" .. vim.pesc(model_name) .. "['\"]"
+  local inherit_pattern = "_inherit%s*=.*['\"]" .. vim.pesc(model_name) .. "['\"]"
+  
+  -- Combinar ambos patrones con OR
+  local combined_pattern = "(" .. name_pattern .. "|" .. inherit_pattern .. ")"
+  
+  if cfg.navigation.use_telescope then
+    M._telescope_search(combined_pattern, {
+      prompt_title = "Definiciones de: " .. model_name,
+      search_dirs = M._get_search_dirs(),
+    })
+  else
+    M._grep_search(combined_pattern)
+  end
+end
+
+---Navega al modelo bajo el cursor (para archivos Python)
+---Extrae el nombre del modelo de la posición del cursor
+function M.goto_model_under_cursor()
+  local model_name = util.extract_model_name_at_cursor()
+  
+  if not model_name then
+    util.warn("No se detectó un nombre de modelo bajo el cursor")
+    util.info("Coloca el cursor sobre un string como 'mail.thread' o 'account.account'")
+    return
+  end
+  
+  -- Usar la función que busca tanto _name como _inherit
+  M.find_model_definitions(model_name)
+end
+
 ---Navega a la definición de un campo
 ---@param field_name string
 ---@param model_name? string
@@ -472,6 +510,14 @@ function M.setup_keymaps()
       if not util.is_odoo_project() then
         return
       end
+
+      -- gm: Ir a modelo bajo cursor
+      vim.keymap.set("n", cfg.navigation.keymaps.goto_model, function()
+        M.goto_model_under_cursor()
+      end, {
+        buffer = bufnr,
+        desc = "Odoo: Ir a definiciones de modelo",
+      })
 
       vim.keymap.set("n", "gr", function()
         M.find_references()
