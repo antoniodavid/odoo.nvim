@@ -514,29 +514,31 @@ function M.setup_keymaps()
 
       util.debug("Configurando keymaps de Odoo para buffer Python " .. bufnr)
 
-      -- gm: Ir a modelo bajo cursor
-      vim.keymap.set("n", cfg.navigation.keymaps.goto_model, function()
+      -- <leader>om: Ir a modelo bajo cursor
+      vim.keymap.set("n", "<leader>om", function()
         M.goto_model_under_cursor()
       end, {
         buffer = bufnr,
         desc = "Odoo: Ir a definiciones de modelo",
       })
 
-      vim.keymap.set("n", "gr", function()
+      -- <leader>or: Buscar referencias
+      vim.keymap.set("n", "<leader>or", function()
         M.find_references()
       end, {
         buffer = bufnr,
         desc = "Odoo: Buscar referencias",
       })
 
-      vim.keymap.set("n", "gi", function()
+      -- <leader>oi: Mostrar herencia
+      vim.keymap.set("n", "<leader>oi", function()
         M.show_inheritance()
       end, {
         buffer = bufnr,
         desc = "Odoo: Mostrar herencia",
       })
       
-      util.debug("Keymaps configurados: gm, gr, gi")
+      util.debug("Keymaps configurados: <leader>om, <leader>or, <leader>oi")
     end,
   })
 end
