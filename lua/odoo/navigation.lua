@@ -508,8 +508,11 @@ function M.setup_keymaps()
 
       -- Solo aplicar en proyectos Odoo
       if not util.is_odoo_project() then
+        util.debug("No es proyecto Odoo, keymaps no aplicados")
         return
       end
+
+      util.debug("Configurando keymaps de Odoo para buffer Python " .. bufnr)
 
       -- gm: Ir a modelo bajo cursor
       vim.keymap.set("n", cfg.navigation.keymaps.goto_model, function()
@@ -532,6 +535,8 @@ function M.setup_keymaps()
         buffer = bufnr,
         desc = "Odoo: Mostrar herencia",
       })
+      
+      util.debug("Keymaps configurados: gm, gr, gi")
     end,
   })
 end
