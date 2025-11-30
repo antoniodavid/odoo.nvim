@@ -253,7 +253,7 @@ function M.goto_model(model_name)
 end
 
 ---Navega a todas las definiciones de un modelo (incluyendo herencias)
----Busca tanto _name como _inherit para el modelo especificado
+---Busca tanto _name como _inherit/_inherits para el modelo especificado
 ---@param model_name string Nombre técnico del modelo
 function M.find_model_definitions(model_name)
   local cfg = config.get()
@@ -261,22 +261,25 @@ function M.find_model_definitions(model_name)
   -- Escapar puntos en el nombre del modelo para regex
   local escaped_model = model_name:gsub("%.", "\\.")
   
-  -- Buscar tanto _name como _inherit usando regex de ripgrep
+  -- Buscar SOLO en definiciones de modelos (_name, _inherit, _inherits)
+  -- Esto excluye referencias en campos, métodos, etc.
   -- \s* = espacios en blanco (0 o más)
-  -- ['""] = comillas simples o dobles
+  -- ['"] = comillas simples o dobles
   local name_pattern = "_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]"
   local inherit_pattern = "_inherit\\s*=.*['\"]" .. escaped_model .. "['\"]"
+  local inherits_pattern = "_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]"
   
-  -- Combinar ambos patrones con OR
-  local combined_pattern = "(" .. name_pattern .. "|" .. inherit_pattern .. ")"
+  -- Combinar los tres patrones con OR
+  local combined_pattern = "(" .. name_pattern .. "|" .. inherit_pattern .. "|" .. inherits_pattern .. ")"
   
   if cfg.navigation.use_telescope then
     M._telescope_search(combined_pattern, {
       prompt_title = "Definiciones de: " .. model_name,
       search_dirs = M._get_search_dirs(),
+      type_filter = "py",  -- Solo archivos Python
     })
   else
-    M._grep_search(combined_pattern)
+    M._grep_search(combined_pattern, "py")
   end
 end
 
@@ -575,8 +578,18 @@ function M.find_references(symbol)
   end
 
   local cfg = config.get()
+  
+  -- Determinar tipo de archivo para filtrar búsqueda
+  local ft = vim.bo.filetype
+  local type_filter = nil
+  
+  if ft == "python" then
+    type_filter = "py"  -- Solo buscar en archivos Python
+  elseif ft == "xml" then
+    type_filter = "xml"  -- Solo buscar en archivos XML
+  end
 
-  -- Buscar referencias del símbolo (en Python y XML)
+  -- Buscar referencias del símbolo
   local pattern = vim.pesc(symbol)
 
   if cfg.navigation.use_telescope then
@@ -587,13 +600,14 @@ function M.find_references(symbol)
     end
 
     telescope.grep_string({
-      prompt_title = "Referencias de: " .. symbol,
+      prompt_title = "Referencias de: " .. symbol .. (type_filter and " (." .. type_filter .. ")" or ""),
       search = pattern,
       use_regex = true,
       search_dirs = M._get_search_dirs(),
+      type_filter = type_filter,
     })
   else
-    M._grep_search(pattern)
+    M._grep_search(pattern, type_filter)
   end
 end
 
