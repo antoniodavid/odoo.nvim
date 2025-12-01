@@ -25,7 +25,7 @@
 ---@field reportAttributeAccessIssue boolean
 
 ---@class odoo.Config.Navigation
----@field use_telescope boolean Usar telescope para navegación
+---@field use_fzf boolean Usar fzf-lua para navegación
 ---@field xml_goto_definition boolean Habilitar gd en archivos XML
 ---@field keymaps odoo.Config.Navigation.Keymaps
 
@@ -173,7 +173,7 @@ M.defaults = {
   },
 
   navigation = {
-    use_telescope = true,
+    use_fzf = true,
     xml_goto_definition = true,
     keymaps = {
       goto_definition = "gd",

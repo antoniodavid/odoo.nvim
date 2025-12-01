@@ -242,8 +242,8 @@ function M.goto_model(model_name)
   local cfg = config.get()
   local pattern = "_name%s*=%s*['\"]" .. vim.pesc(model_name) .. "['\"]"
 
-  if cfg.navigation.use_telescope then
-    M._telescope_search(pattern, {
+  if cfg.navigation.use_fzf then
+    M._fzf_search(pattern, {
       prompt_title = "Modelo: " .. model_name,
       search_dirs = M._get_search_dirs(),
     })
@@ -272,8 +272,8 @@ function M.find_model_definitions(model_name)
   -- Combinar los tres patrones con OR
   local combined_pattern = "(" .. name_pattern .. "|" .. inherit_pattern .. "|" .. inherits_pattern .. ")"
   
-  if cfg.navigation.use_telescope then
-    M._telescope_search(combined_pattern, {
+  if cfg.navigation.use_fzf then
+    M._fzf_search(combined_pattern, {
       prompt_title = "Definiciones de: " .. model_name,
       search_dirs = M._get_search_dirs(),
       type_filter = "py",  -- Solo archivos Python
@@ -307,8 +307,8 @@ function M.goto_field(field_name, model_name)
   -- Buscar definición del campo: field_name = fields.XXX(
   local pattern = field_name .. "%s*=%s*fields%."
 
-  if cfg.navigation.use_telescope then
-    M._telescope_search(pattern, {
+  if cfg.navigation.use_fzf then
+    M._fzf_search(pattern, {
       prompt_title = "Campo: " .. field_name .. (model_name and (" en " .. model_name) or ""),
       search_dirs = M._get_search_dirs(),
     })
@@ -331,8 +331,8 @@ function M.goto_xml_id(xml_id)
     pattern = 'id%s*=%s*["\']' .. vim.pesc(xml_id) .. '["\']'
   end
 
-  if cfg.navigation.use_telescope then
-    M._telescope_search(pattern, {
+  if cfg.navigation.use_fzf then
+    M._fzf_search(pattern, {
       prompt_title = "XML ID: " .. xml_id,
       search_dirs = M._get_search_dirs(),
       type_filter = "xml",
@@ -352,32 +352,87 @@ function M._get_search_dirs()
   return { vim.fn.getcwd() }
 end
 
----Búsqueda usando Telescope
+---Búsqueda usando FZF-Lua
 ---@param pattern string
 ---@param opts? table
-function M._telescope_search(pattern, opts)
+function M._fzf_search(pattern, opts)
   opts = opts or {}
 
-  local ok, telescope = pcall(require, "telescope.builtin")
+  local ok, fzf = pcall(require, "fzf-lua")
   if not ok then
-    util.warn("Telescope no está disponible, usando grep...")
+    util.warn("FZF-Lua no está disponible, usando grep...")
     M._grep_search(pattern)
     return
   end
 
-  local grep_opts = {
-    prompt_title = opts.prompt_title or "Odoo Search",
-    search = pattern,
-    use_regex = true,
-    search_dirs = opts.search_dirs,
+  local search_dirs = opts.search_dirs or M._get_search_dirs()
+  
+  -- Construir comando ripgrep con directorios específicos
+  local cmd_parts = {
+    "rg",
+    "--column",
+    "--line-number",
+    "--no-heading",
+    "--color=always",
+    "--smart-case",
   }
-
-  -- Filtrar por tipo de archivo si se especifica
+  
+  -- Agregar filtro de tipo de archivo si existe
   if opts.type_filter then
-    grep_opts.type_filter = opts.type_filter
+    table.insert(cmd_parts, "--type=" .. opts.type_filter)
   end
+  
+  -- Agregar patrón de búsqueda (usar -e para pattern)
+  table.insert(cmd_parts, "-e")
+  table.insert(cmd_parts, pattern)
+  
+  -- Agregar directorios
+  for _, dir in ipairs(search_dirs) do
+    table.insert(cmd_parts, vim.fn.expand(dir))
+  end
+  
+  local cmd = table.concat(cmd_parts, " ")
+  
+  fzf.grep({
+    cmd = cmd,
+    prompt = opts.prompt_title and (opts.prompt_title .. "❯ ") or "Odoo Search❯ ",
+    no_esc = true,
+  })
+end
 
-  telescope.grep_string(grep_opts)
+  local search_dirs = opts.search_dirs or M._get_search_dirs()
+  
+  -- Construir comando ripgrep con directorios específicos
+  local cmd_parts = {
+    "rg",
+    "--column",
+    "--line-number",
+    "--no-heading",
+    "--color=always",
+    "--smart-case",
+  }
+  
+  -- Agregar filtro de tipo de archivo si existe
+  if opts.type_filter then
+    table.insert(cmd_parts, "--type=" .. opts.type_filter)
+  end
+  
+  -- Agregar patrón de búsqueda (escapado para ripgrep)
+  table.insert(cmd_parts, "-e")
+  table.insert(cmd_parts, vim.fn.shellescape(pattern))
+  
+  -- Agregar directorios
+  for _, dir in ipairs(search_dirs) do
+    table.insert(cmd_parts, vim.fn.expand(dir))
+  end
+  
+  local cmd = table.concat(cmd_parts, " ")
+  
+  fzf.grep({
+    cmd = cmd,
+    prompt = opts.prompt_title and (opts.prompt_title .. "❯ ") or "Odoo Search❯ ",
+    no_esc = true,
+  })
 end
 
 ---Búsqueda usando grep nativo
@@ -592,17 +647,9 @@ function M.find_references(symbol)
   -- Buscar referencias del símbolo
   local pattern = vim.pesc(symbol)
 
-  if cfg.navigation.use_telescope then
-    local ok, telescope = pcall(require, "telescope.builtin")
-    if not ok then
-      util.warn("Telescope no disponible")
-      return
-    end
-
-    telescope.grep_string({
+  if cfg.navigation.use_fzf then
+    M._fzf_search(pattern, {
       prompt_title = "Referencias de: " .. symbol .. (type_filter and " (." .. type_filter .. ")" or ""),
-      search = pattern,
-      use_regex = true,
       search_dirs = M._get_search_dirs(),
       type_filter = type_filter,
     })
@@ -651,16 +698,11 @@ function M.show_inheritance(model_name)
   local inherit_pattern = "_inherit%s*=%s*['\"]" .. vim.pesc(model_name) .. "['\"]"
 
   local cfg = config.get()
-  if cfg.navigation.use_telescope then
-    local ok, telescope = pcall(require, "telescope.builtin")
-    if ok then
-      telescope.grep_string({
-        prompt_title = "Herencia de: " .. model_name,
-        search = inherit_pattern,
-        use_regex = true,
-        search_dirs = M._get_search_dirs(),
-      })
-    end
+  if cfg.navigation.use_fzf then
+    M._fzf_search(inherit_pattern, {
+      prompt_title = "Herencia de: " .. model_name,
+      search_dirs = M._get_search_dirs(),
+    })
   else
     M._grep_search(inherit_pattern)
   end
@@ -696,17 +738,12 @@ function M.view_inheritance(view_id)
   local inherit_pattern = "inherit_id.*" .. vim.pesc(view_id)
 
   local cfg = config.get()
-  if cfg.navigation.use_telescope then
-    local ok, telescope = pcall(require, "telescope.builtin")
-    if ok then
-      telescope.grep_string({
-        prompt_title = "Herencia de vista: " .. view_id,
-        search = inherit_pattern,
-        use_regex = true,
-        search_dirs = M._get_search_dirs(),
-        type_filter = "xml",
-      })
-    end
+  if cfg.navigation.use_fzf then
+    M._fzf_search(inherit_pattern, {
+      prompt_title = "Herencia de vista: " .. view_id,
+      search_dirs = M._get_search_dirs(),
+      type_filter = "xml",
+    })
   else
     M._grep_search(inherit_pattern, "xml")
   end

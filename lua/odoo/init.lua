@@ -62,6 +62,10 @@ function M.setup(opts)
 
   -- Configurar keymaps
   navigation.setup_keymaps()
+  
+  -- Configurar keymaps de Doodba
+  local doodba = require("odoo.doodba")
+  doodba.setup_keymaps()
 
   -- Configurar autodetección de proyectos Odoo
   if cfg.detection.auto_detect then

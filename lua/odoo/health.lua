@@ -59,12 +59,12 @@ function M.check()
     warn("nvim-treesitter no instalado (navegación XML limitada)")
   end
 
-  -- Telescope
-  local telescope_ok = pcall(require, "telescope")
-  if telescope_ok then
-    ok("telescope.nvim instalado")
+  -- FZF-Lua
+  local fzf_ok = pcall(require, "fzf-lua")
+  if fzf_ok then
+    ok("fzf-lua instalado")
   else
-    warn("telescope.nvim no instalado (se usará grep para búsquedas)")
+    warn("fzf-lua no instalado (se usará grep para búsquedas)")
   end
 
   -- lspconfig
