@@ -11,14 +11,18 @@
 ## ✨ Características
 
 - **🔌 Zero-Config**: Detecta automáticamente proyectos Odoo estándar y Doodba
-- **📦 Multi-Versión**: Soporta Odoo 8.0 a 18.0+ con detección automática
+- **📦 Multi-Versión**: Soporta Odoo 8.0 a 19.0+ con detección automática y fallback para versiones futuras
 - **🐳 Soporte Doodba**: Integración completa con Docker y estructura Tecnativa/Copier
 - **🧠 LSP Inteligente**: Inyecta configuración en Pyright/Basedpyright automáticamente
 - **📦 Stubs Tipados**: Descarga automática desde [odoo-ide/odoo-stubs](https://github.com/odoo-ide/odoo-stubs)
 - **🔧 Generación Dinámica**: Genera stubs con `stubgen` para versiones sin soporte
 - **🧭 Navegación XML→Python**: Salta de vistas XML a definiciones Python con `gd`
-- **🔍 Búsqueda Integrada**: Usa Telescope para búsquedas rápidas
+- **🐍 Navegación Python**: Navega a definiciones de modelos con `<leader>om` desde cualquier archivo Python
+- **🔍 Búsqueda Inteligente**: Búsqueda específica por tipo de archivo (Python → `.py`, XML → `.xml`)
+- **🎯 Búsqueda Precisa**: `<leader>om` busca SOLO en `_name`, `_inherit`, `_inherits` (no en campos/métodos)
+- **🔭 Telescope Integration**: UI moderna y rápida para navegación y búsqueda
 - **🐳 Comandos Docker**: Controla contenedores directamente desde Neovim
+- **🌐 Compatible con LazyVim**: Configuración específica para evitar conflictos
 
 ## 📦 Versiones Soportadas
 
@@ -83,6 +87,72 @@
   opts = {},
 }
 ```
+
+### Con LazyVim
+
+Si usas [LazyVim](https://www.lazyvim.org/), necesitas configuración adicional para integrar con Pyright:
+
+**1. Plugin principal** (`~/.config/nvim/lua/plugins/odoo.lua`):
+
+```lua
+return {
+  "antoniodavid/odoo.nvim",
+  dependencies = {
+    "neovim/nvim-lspconfig",
+    "nvim-telescope/telescope.nvim",
+    "nvim-treesitter/nvim-treesitter",
+  },
+  lazy = false,
+  priority = 1000,
+  config = function()
+    require("odoo").setup({
+      lsp = {
+        auto_inject = true,
+        server = "pyright",
+      },
+    })
+  end,
+}
+```
+
+**2. Integración LSP** (`~/.config/nvim/lua/plugins/pyright-odoo.lua`):
+
+```lua
+return {
+  {
+    "neovim/nvim-lspconfig",
+    opts = {
+      servers = {
+        pyright = {
+          on_attach = function(client, bufnr)
+            local odoo_util = require('odoo.util')
+            local odoo_root = odoo_util.get_odoo_root()
+
+            if odoo_root then
+              vim.schedule(function()
+                local odoo_lsp = require('odoo.lsp')
+                local settings = odoo_lsp.generate_settings(odoo_root)
+
+                client.config.settings = vim.tbl_deep_extend(
+                  "force",
+                  client.config.settings or {},
+                  settings
+                )
+
+                client.notify("workspace/didChangeConfiguration", {
+                  settings = client.config.settings
+                })
+              end)
+            end
+          end,
+        },
+      },
+    },
+  },
+}
+```
+
+> **Importante**: La integración LSP es necesaria para que LazyVim aplique correctamente la configuración de Odoo a Pyright.
 
 ### Configuración completa
 
@@ -290,6 +360,8 @@ Los stubs generados se guardan en `~/.local/share/nvim/odoo-stubs/generated-{ver
 
 ## ⌨️ Keymaps
 
+### Archivos XML
+
 En archivos **XML** dentro de proyectos Odoo:
 
 | Keymap | Acción                                                   |
@@ -297,6 +369,26 @@ En archivos **XML** dentro de proyectos Odoo:
 | `gd`   | Ir a definición (modelo, campo, o XML ID según contexto) |
 | `gm`   | Ir al modelo del contexto actual                         |
 | `gx`   | Ir a XML ID                                              |
+
+### Archivos Python
+
+En archivos **Python** dentro de proyectos Odoo:
+
+| Keymap       | Acción                                                         |
+| ------------ | -------------------------------------------------------------- |
+| `<leader>om` | Ir a definiciones de modelo (`_name`, `_inherit`, `_inherits`) |
+| `<leader>or` | Buscar referencias (solo en archivos `.py`)                    |
+| `<leader>oi` | Mostrar árbol de herencia del modelo                           |
+
+> **Nota**: Los keymaps usan `<leader>o` para evitar conflictos con LazyVim. El prefijo `o` representa "Odoo".
+
+### Características de Búsqueda
+
+- **`<leader>om`**: Busca SOLO en definiciones de modelos (`_name`, `_inherit`, `_inherits`), excluyendo campos y métodos
+- **`<leader>or`**: Búsqueda específica por tipo de archivo:
+  - En Python → busca solo en archivos `.py`
+  - En XML → busca solo en archivos `.xml`
+- **Telescope Integration**: Usa Telescope para una UI moderna y rápida
 
 ### Elementos navegables en XML
 
