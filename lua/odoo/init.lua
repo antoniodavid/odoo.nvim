@@ -150,6 +150,102 @@ function M._setup_global_commands()
   end, {
     desc = "Genera un archivo pyrightconfig.json para el proyecto",
   })
+
+  -- Comandos Doodba/Invoke
+  local doodba = require("odoo.doodba")
+
+  vim.api.nvim_create_user_command("OdooStart", function()
+    doodba.start()
+  end, {
+    desc = "Inicia Odoo con logs (inv start logs -c odoo)",
+  })
+
+  vim.api.nvim_create_user_command("OdooRestart", function()
+    doodba.restart()
+  end, {
+    desc = "Reinicia Odoo con logs (inv restart logs -c odoo)",
+  })
+
+  vim.api.nvim_create_user_command("OdooStop", function()
+    doodba.stop()
+  end, {
+    desc = "Detiene Odoo (inv stop)",
+  })
+
+  vim.api.nvim_create_user_command("OdooLogs", function(opts)
+    doodba.logs(opts.args ~= "" and opts.args or nil)
+  end, {
+    nargs = "?",
+    desc = "Muestra logs de Odoo (inv logs -c odoo)",
+  })
+
+  vim.api.nvim_create_user_command("OdooResetDB", function()
+    doodba.resetdb()
+  end, {
+    desc = "Reset completo de base de datos (inv resetdb preparedb start logs -c odoo)",
+  })
+
+  vim.api.nvim_create_user_command("OdooShell", function()
+    doodba.shell()
+  end, {
+    desc = "Abre shell en contenedor Odoo",
+  })
+
+  vim.api.nvim_create_user_command("OdooPsql", function()
+    doodba.psql()
+  end, {
+    desc = "Abre PostgreSQL shell",
+  })
+
+  vim.api.nvim_create_user_command("OdooExec", function(opts)
+    if opts.args == "" then
+      util.warn("Especifica un comando a ejecutar")
+      return
+    end
+    doodba.exec(opts.args)
+  end, {
+    nargs = "+",
+    desc = "Ejecuta comando en contenedor Odoo",
+  })
+
+  vim.api.nvim_create_user_command("OdooUpdate", function(opts)
+    doodba.update(opts.args ~= "" and opts.args or nil)
+  end, {
+    nargs = "?",
+    desc = "Actualiza módulos con odoo-click-update",
+  })
+
+  vim.api.nvim_create_user_command("OdooInstall", function(opts)
+    doodba.install(opts.args)
+  end, {
+    nargs = "+",
+    desc = "Instala módulos con odoo-click-install",
+  })
+
+  vim.api.nvim_create_user_command("OdooUninstall", function(opts)
+    doodba.uninstall(opts.args)
+  end, {
+    nargs = "+",
+    desc = "Desinstala módulos con odoo-click-uninstall",
+  })
+
+  vim.api.nvim_create_user_command("OdooUpdateCurrent", function()
+    doodba.update_current()
+  end, {
+    desc = "Actualiza el módulo actual (auto-detectado)",
+  })
+
+  vim.api.nvim_create_user_command("OdooInstallCurrent", function()
+    doodba.install_current()
+  end, {
+    desc = "Instala el módulo actual (auto-detectado)",
+  })
+
+  vim.api.nvim_create_user_command("OdooRestartUpdate", function()
+    doodba.restart_update()
+  end, {
+    desc = "Reinicia y actualiza el módulo actual",
+  })
 end
 
 ---Muestra información del estado del plugin en un buffer flotante
