@@ -250,6 +250,21 @@ function M._setup_global_commands()
   end, {
     desc = "Reinicia y actualiza el módulo actual",
   })
+
+  -- Comando para instalar XML parser
+  vim.api.nvim_create_user_command("OdooInstallXmlParser", function()
+    local ok, ts_install = pcall(require, "nvim-treesitter.install")
+    if not ok then
+      vim.notify("nvim-treesitter no está instalado", vim.log.levels.ERROR)
+      return
+    end
+    
+    vim.notify("Instalando Treesitter XML parser...", vim.log.levels.INFO)
+    ts_install.update({ with_sync = true })("xml")
+    vim.notify("✅ XML parser instalado. Reinicia Neovim.", vim.log.levels.INFO)
+  end, {
+    desc = "Instala el parser XML de Treesitter para navegación mejorada",
+  })
 end
 
 ---Muestra información del estado del plugin en un buffer flotante
@@ -310,7 +325,7 @@ function M.show_info()
   table.insert(lines, "Configuración:")
   table.insert(lines, "  LSP Server: " .. cfg.lsp.server)
   table.insert(lines, "  Auto-inject LSP: " .. (cfg.lsp.auto_inject and "✓" or "✗"))
-  table.insert(lines, "  Telescope: " .. (cfg.navigation.use_telescope and "✓" or "✗"))
+  table.insert(lines, "  FZF-Lua: " .. (cfg.navigation.use_fzf and "✓" or "✗"))
   table.insert(lines, "  XML gd override: " .. (cfg.navigation.xml_goto_definition and "✓" or "✗"))
   table.insert(lines, "  Doodba support: " .. (cfg.doodba.enabled and "✓" or "✗"))
   table.insert(lines, "  Version auto-detect: " .. (cfg.version.auto_detect and "✓" or "✗"))
@@ -458,7 +473,7 @@ function M.health_check()
         -- Intentar obtener el parser de XML
         return pcall(parsers.get_parser, "xml")
       end },
-    { name = "Telescope", check = function() return pcall(require, "telescope") end },
+    { name = "FZF-Lua", check = function() return pcall(require, "fzf-lua") end },
     { name = "lspconfig", check = function() return pcall(require, "lspconfig") end },
     { name = "Git", check = function() return vim.fn.executable("git") == 1 end },
     { name = "Grep", check = function() return vim.fn.executable("grep") == 1 end },

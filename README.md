@@ -61,7 +61,7 @@
 
 ### Opcionales (Recomendados)
 
-- [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) - Búsquedas avanzadas
+- [fzf-lua](https://github.com/ibhagwan/fzf-lua) - Búsquedas avanzadas
 - [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter) - Parsing XML preciso
 
 ## 📦 Instalación
@@ -73,7 +73,7 @@
   "antoniodavid/odoo.nvim",
   dependencies = {
     "neovim/nvim-lspconfig",
-    "nvim-telescope/telescope.nvim", -- opcional
+    "ibhagwan/fzf-lua", -- opcional
     "nvim-treesitter/nvim-treesitter", -- opcional
   },
   ft = { "python", "xml" },
@@ -99,7 +99,7 @@ return {
   "antoniodavid/odoo.nvim",
   dependencies = {
     "neovim/nvim-lspconfig",
-    "nvim-telescope/telescope.nvim",
+    "ibhagwan/fzf-lua",
     "nvim-treesitter/nvim-treesitter",
   },
   lazy = false,
@@ -161,7 +161,7 @@ return {
   "antoniodavid/odoo.nvim",
   dependencies = {
     "neovim/nvim-lspconfig",
-    "nvim-telescope/telescope.nvim",
+    "ibhagwan/fzf-lua",
     "nvim-treesitter/nvim-treesitter",
   },
   event = "VeryLazy",

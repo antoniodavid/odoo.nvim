@@ -62,20 +62,18 @@ function M.generate_standard_settings(root_dir, version)
         typeCheckingMode = cfg.lsp.analysis.typeCheckingMode,
         diagnosticSeverityOverrides = cfg.lsp.analysis.diagnosticSeverityOverrides,
         autoSearchPaths = true,
+        -- IMPORTANTE: Priorizar código real sobre stubs
         useLibraryCodeForTypes = true,
         autoImportCompletions = true,
         extraPaths = extra_paths,
         pythonVersion = python_version,
+        -- NO configurar stubPath directamente para evitar que Pyright
+        -- navegue a .pyi cuando existe .py
+        -- Los stubs ya están en extraPaths y se usarán solo como fallback
       },
       pythonPath = M.find_python(root_dir),
     },
   }
-
-  -- Añadir stubPath solo si los stubs existen
-  -- stubPath debe apuntar al directorio base que contiene odoo-stubs/
-  if stub_path then
-    settings.python.analysis.stubPath = stub_path
-  end
 
   return settings
 end
@@ -144,6 +142,7 @@ function M.generate_doodba_settings(root_dir, version)
         typeCheckingMode = cfg.lsp.analysis.typeCheckingMode,
         diagnosticSeverityOverrides = cfg.lsp.analysis.diagnosticSeverityOverrides,
         autoSearchPaths = true,
+        -- IMPORTANTE: Priorizar código real sobre stubs
         useLibraryCodeForTypes = true,
         autoImportCompletions = true,
         extraPaths = extra_paths,
@@ -155,16 +154,13 @@ function M.generate_doodba_settings(root_dir, version)
           "**/filestore",
           "**/sessions",
         },
+        -- NO configurar stubPath directamente para evitar que Pyright
+        -- navegue a .pyi cuando existe .py
+        -- Los stubs ya están en extraPaths y se usarán solo como fallback
       },
       pythonPath = M.find_python_doodba(root_dir),
     },
   }
-
-  -- Añadir stubPath solo si los stubs existen
-  -- stubPath debe apuntar al directorio base que contiene odoo-stubs/
-  if stub_path then
-    settings.python.analysis.stubPath = stub_path
-  end
 
   return settings
 end
