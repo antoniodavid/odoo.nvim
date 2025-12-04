@@ -268,13 +268,14 @@ function M.find_model_definitions(model_name)
   -- Escapar caracteres especiales para regex (usando \ no %)
   local escaped_model = util.escape_regex(model_name)
   
-  -- Patrones más flexibles para encontrar definiciones
-  -- Nota: En ripgrep, no necesitamos escapar tanto como en Lua
+  -- Patrones más estrictos para encontrar SOLO definiciones
+  -- Buscamos explícitamente _name = ... o _inherit = ...
+  -- Evitamos coincidencias parciales como comodel_name='...'
   local patterns = {
-    "_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
-    "_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
-    "_inherit\\s*=\\s*\\[[\\s\\S]*?['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name'] (multilínea)
-    "_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
+    "\\s*_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
+    "\\s*_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
+    "\\s*_inherit\\s*=\\s*\\[[\\s\\S]*?['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name']
+    "\\s*_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
   }
   
   -- Combinar patrones con OR
