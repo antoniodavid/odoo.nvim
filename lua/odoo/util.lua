@@ -1002,28 +1002,51 @@ function M.extract_model_name_at_cursor()
   local line = vim.api.nvim_get_current_line()
   local col = vim.api.nvim_win_get_cursor(0)[2]
   
-  -- Buscar strings en la línea (single o double quotes)
-  local patterns = {
-    { pattern = "'([%w%.]+)'", quote_len = 1 },  -- Single quotes
-    { pattern = '"([%w%.]+)"', quote_len = 1 },  -- Double quotes
-  }
-  
-  for _, p in ipairs(patterns) do
+  -- Case 1: Cursor on a quoted string (most common case)
+  -- Try both single and double quotes
+  for _, quote in ipairs({"'", '"'}) do
+    local pattern = quote .. "([%w%.%-_]+)" .. quote
     local start_idx = 1
+    
     while true do
-      local match_start, match_end, model_name = line:find(p.pattern, start_idx)
+      local match_start, match_end, model_name = line:find(pattern, start_idx)
       if not match_start then break end
       
-      -- Verificar si el cursor está dentro de este match
+      -- Check if cursor is within this match (including the quotes)
       if col >= match_start - 1 and col <= match_end then
-        -- Verificar que sea un nombre de modelo válido (contiene punto)
-        if model_name and model_name:match("^%w+%.%w+") then
+        -- Verify it looks like a model name (has a dot)
+        if model_name and model_name:match("%.") then
           return model_name
         end
       end
       
       start_idx = match_end + 1
     end
+  end
+  
+  -- Case 2: Cursor on _name or _inherit assignment line
+  -- Extract model name from the line itself
+  local model = line:match("_name%s*=%s*['\"]([%w%.%-_]+)['\"]")
+  if model then return model end
+  
+  model = line:match("_inherit%s*=%s*['\"]([%w%.%-_]+)['\"]")
+  if model then return model end
+  
+  -- Case 3: Model name in a list: _inherit = ['model.name', ...]
+  -- Get all models from the list and return the first one
+  local list_content = line:match("_inherit%s*=%s*%[(.-)%]")
+  if list_content then
+    model = list_content:match("['\"]([%w%.%-_]+)['\"]")
+    if model and model:match("%.") then
+      return model
+    end
+  end
+  
+  -- Case 4: Get word under cursor and check if it looks like a model name
+  -- This handles cases where cursor is on the model name without quotes
+  local word = vim.fn.expand("<cword>")
+  if word and word:match("^[%w%.%-_]+$") and word:match("%.") then
+    return word
   end
   
   return nil

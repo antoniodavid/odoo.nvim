@@ -258,25 +258,33 @@ end
 function M.find_model_definitions(model_name)
   local cfg = config.get()
   
-  -- Escapar puntos en el nombre del modelo para regex
-  local escaped_model = model_name:gsub("%.", "\\.")
+  if not model_name or model_name == "" then
+    util.warn("No se especificó nombre de modelo")
+    return
+  end
   
-  -- Buscar SOLO en definiciones de modelos (_name, _inherit, _inherits)
-  -- Esto excluye referencias en campos, métodos, etc.
-  -- \s* = espacios en blanco (0 o más)
-  -- ['"] = comillas simples o dobles
-  local name_pattern = "_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]"
-  local inherit_pattern = "_inherit\\s*=.*['\"]" .. escaped_model .. "['\"]"
-  local inherits_pattern = "_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]"
+  util.info("🔍 Buscando definiciones de: " .. model_name)
   
-  -- Combinar los tres patrones con OR
-  local combined_pattern = "(" .. name_pattern .. "|" .. inherit_pattern .. "|" .. inherits_pattern .. ")"
+  -- Escapar caracteres especiales para regex
+  local escaped_model = vim.pesc(model_name)
+  
+  -- Patrones más flexibles para encontrar definiciones
+  -- Nota: En ripgrep, no necesitamos escapar tanto como en Lua
+  local patterns = {
+    "_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
+    "_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
+    "_inherit\\s*=\\s*\\[.*['\"]" .. escaped_model .. "['\"]",  -- _inherit = ['model.name']
+    "_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
+  }
+  
+  -- Combinar patrones con OR
+  local combined_pattern = table.concat(patterns, "|")
   
   if cfg.navigation.use_fzf then
     M._fzf_search(combined_pattern, {
       prompt_title = "Definiciones de: " .. model_name,
       search_dirs = M._get_search_dirs(),
-      type_filter = "py",  -- Solo archivos Python
+      type_filter = "py",
     })
   else
     M._grep_search(combined_pattern, "py")
@@ -289,8 +297,11 @@ function M.goto_model_under_cursor()
   local model_name = util.extract_model_name_at_cursor()
   
   if not model_name then
-    util.warn("No se detectó un nombre de modelo bajo el cursor")
-    util.info("Coloca el cursor sobre un string como 'mail.thread' o 'account.account'")
+    util.warn("❌ No se detectó un nombre de modelo bajo el cursor")
+    util.info("💡 Coloca el cursor sobre:")
+    util.info("   • Un string como 'account.account' o \"sale.order\"")
+    util.info("   • Una línea con _name = 'model.name'")
+    util.info("   • Una línea con _inherit = 'model.name'")
     return
   end
   
@@ -345,11 +356,25 @@ end
 ---Obtiene los directorios donde buscar
 ---@return string[]
 function M._get_search_dirs()
-  local root = util.get_odoo_root()
-  if root then
-    return { root }
+  local root, project_type = util.get_odoo_root()
+  if not root then
+    return { vim.fn.getcwd() }
   end
-  return { vim.fn.getcwd() }
+  
+  -- Obtener paths de addons según el tipo de proyecto
+  local addon_paths = {}
+  if project_type == "doodba" then
+    addon_paths = util.get_doodba_addons_paths(root)
+  else
+    addon_paths = util.get_standard_addons_paths(root)
+  end
+  
+  -- Asegurar que la raíz del proyecto esté incluida
+  if not vim.tbl_contains(addon_paths, root) then
+    table.insert(addon_paths, 1, root)
+  end
+  
+  return addon_paths
 end
 
 ---Búsqueda usando FZF-Lua
@@ -584,16 +609,22 @@ function M.find_references(symbol)
         symbol = ctx.value
       end
     elseif ft == "python" then
-      -- En Python, obtener palabra bajo cursor
-      symbol = vim.fn.expand("<cword>")
+      -- Primero intentar extraer modelo del cursor
+      symbol = util.extract_model_name_at_cursor()
+      
+      -- Si no es un modelo, obtener palabra bajo cursor
+      if not symbol then
+        symbol = vim.fn.expand("<cword>")
+      end
     else
-      util.warn("Tipo de archivo no soportado para find references")
+      util.warn("❌ Tipo de archivo no soportado para find references")
       return
     end
   end
 
   if not symbol or symbol == "" then
-    util.warn("No se pudo detectar símbolo para buscar referencias")
+    util.warn("❌ No se pudo detectar símbolo para buscar referencias")
+    util.info("💡 Coloca el cursor sobre un modelo, campo o método")
     return
   end
 
@@ -608,6 +639,8 @@ function M.find_references(symbol)
   elseif ft == "xml" then
     type_filter = "xml"  -- Solo buscar en archivos XML
   end
+
+  util.info("🔍 Buscando referencias de: " .. symbol)
 
   -- Buscar referencias del símbolo
   local pattern = vim.pesc(symbol)
@@ -638,38 +671,46 @@ function M.show_inheritance(model_name)
         model_name = M._find_model_in_buffer()
       end
     elseif ft == "python" then
-      -- Buscar _name en el archivo actual
-      local bufnr = vim.api.nvim_get_current_buf()
-      local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+      -- Primero intentar extraer del cursor
+      model_name = util.extract_model_name_at_cursor()
+      
+      -- Si no funciona, buscar _name en el archivo actual
+      if not model_name then
+        local bufnr = vim.api.nvim_get_current_buf()
+        local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
 
-      for _, line in ipairs(lines) do
-        local name = line:match("_name%s*=%s*['\"]([^'\"]+)['\"]")
-        if name then
-          model_name = name
-          break
+        for _, line in ipairs(lines) do
+          local name = line:match("_name%s*=%s*['\"]([^'\"]+)['\"]")
+          if name then
+            model_name = name
+            break
+          end
         end
       end
     end
   end
 
   if not model_name or model_name == "" then
-    util.warn("No se pudo detectar modelo para mostrar herencia")
+    util.warn("❌ No se pudo detectar modelo para mostrar herencia")
+    util.info("💡 Coloca el cursor sobre un modelo o en una clase de modelo")
     return
   end
 
-  util.info("Buscando herencia para modelo: " .. model_name)
+  util.info("🔍 Buscando herencia para modelo: " .. model_name)
 
   -- Buscar modelos que heredan de este
-  local inherit_pattern = "_inherit%s*=%s*['\"]" .. vim.pesc(model_name) .. "['\"]"
+  local escaped_model = vim.pesc(model_name)
+  local inherit_pattern = "_inherit%s*=%s*['\"]" .. escaped_model .. "['\"]"
 
   local cfg = config.get()
   if cfg.navigation.use_fzf then
     M._fzf_search(inherit_pattern, {
       prompt_title = "Herencia de: " .. model_name,
       search_dirs = M._get_search_dirs(),
+      type_filter = "py",
     })
   else
-    M._grep_search(inherit_pattern)
+    M._grep_search(inherit_pattern, "py")
   end
 end
 
