@@ -17,7 +17,7 @@
 ---
 local M = {}
 
-M._VERSION = "0.2.0"
+M._VERSION = "0.3.0"
 
 ---@type boolean
 local _setup_done = false

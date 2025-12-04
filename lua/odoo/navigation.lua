@@ -270,12 +270,13 @@ function M.find_model_definitions(model_name)
   
   -- Patrones más estrictos para encontrar SOLO definiciones
   -- Buscamos explícitamente _name = ... o _inherit = ...
-  -- Evitamos coincidencias parciales como comodel_name='...'
+  -- Usamos ^ para asegurar que empieza al inicio de la línea (ignorando espacios)
+  -- Usamos [^\]]*? para listas para no salirnos de la lista
   local patterns = {
-    "\\s*_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
-    "\\s*_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
-    "\\s*_inherit\\s*=\\s*\\[[\\s\\S]*?['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name']
-    "\\s*_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
+    "(^|\\n)\\s*_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
+    "(^|\\n)\\s*_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
+    "(^|\\n)\\s*_inherit\\s*=\\s*\\[[^%]]*?['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name']
+    "(^|\\n)\\s*_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
   }
   
   -- Combinar patrones con OR
