@@ -268,15 +268,14 @@ function M.find_model_definitions(model_name)
   -- Escapar caracteres especiales para regex (usando \ no %)
   local escaped_model = util.escape_regex(model_name)
   
-  -- Patrones más estrictos para encontrar SOLO definiciones
-  -- Buscamos explícitamente _name = ... o _inherit = ...
-  -- Usamos ^ para asegurar que empieza al inicio de la línea (ignorando espacios)
-  -- Usamos [^\]]*? para listas para no salirnos de la lista
+  -- Patrones ESTRICTAMENTE basados en líneas para encontrar SOLO definiciones
+  -- Sin modo multilínea para evitar falsos positivos
+  -- ^ = inicio de línea en ripgrep cuando se usa sin --multiline
   local patterns = {
-    "(^|\\n)\\s*_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
-    "(^|\\n)\\s*_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
-    "(^|\\n)\\s*_inherit\\s*=\\s*\\[[^%]]*?['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name']
-    "(^|\\n)\\s*_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
+    "^\\s*_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
+    "^\\s*_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
+    "^\\s*_inherit\\s*=\\s*\\[.*['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name'] (misma línea)
+    "^\\s*_inherits\\s*=\\s*\\{.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {..., 'model.name': ...}
   }
   
   -- Combinar patrones con OR
@@ -287,7 +286,7 @@ function M.find_model_definitions(model_name)
       prompt_title = "Definiciones de: " .. model_name,
       search_dirs = M._get_search_dirs(),
       type_filter = "py",
-      multiline = true, -- Habilitar búsqueda multilínea
+      -- NO usar multiline, los patrones son estrictamente por línea
     })
   else
     M._grep_search(combined_pattern, "py")
@@ -395,31 +394,22 @@ function M._fzf_search(pattern, opts)
 
   local search_dirs = opts.search_dirs or M._get_search_dirs()
   
-  -- Construir comando ripgrep con directorios específicos
+  -- Construir comando ripgrep completo con el patrón incluido
   local cmd_parts = {
     "rg",
     "--column",
     "--line-number",
     "--no-heading",
     "--color=always",
-    "--line-number",
-    "--no-heading",
-    "--color=always",
     "--smart-case",
   }
-  
-  -- Soporte para búsqueda multilínea (útil para listas en Python)
-  if opts.multiline then
-    table.insert(cmd_parts, "--multiline")
-    table.insert(cmd_parts, "--multiline-dotall")
-  end
   
   -- Agregar filtro de tipo de archivo si existe
   if opts.type_filter then
     table.insert(cmd_parts, "--type=" .. opts.type_filter)
   end
   
-  -- Agregar patrón de búsqueda (usar -e para pattern)
+  -- Agregar patrón de búsqueda
   table.insert(cmd_parts, "-e")
   table.insert(cmd_parts, vim.fn.shellescape(pattern))
   
@@ -429,12 +419,16 @@ function M._fzf_search(pattern, opts)
     table.insert(cmd_parts, vim.fn.shellescape(expanded_dir))
   end
   
-  local cmd = table.concat(cmd_parts, " ")
+  local rg_cmd = table.concat(cmd_parts, " ")
   
-  fzf.grep({
-    cmd = cmd,
+  -- Usar fzf con comando raw que ejecuta directamente
+  fzf.fzf_exec(rg_cmd, {
     prompt = opts.prompt_title and (opts.prompt_title .. "❯ ") or "Odoo Search❯ ",
-    no_esc = true,
+    previewer = "builtin",
+    actions = fzf.defaults.actions.files,
+    fzf_opts = {
+      ["--layout"] = "reverse-list",
+    },
   })
 end
 
@@ -737,11 +731,18 @@ function M.show_inheritance(model_name)
     return
   end
 
-  util.info("🔍 Buscando herencia para modelo: " .. model_name)
+  util.info("🔍 Buscando modelos que heredan de: " .. model_name)
 
-  -- Buscar modelos que heredan de este
+  -- Buscar modelos que heredan de este (usando patrones estrictos)
   local escaped_model = util.escape_regex(model_name)
-  local inherit_pattern = "_inherit%s*=%s*['\"]" .. escaped_model .. "['\"]"
+  
+  -- Patrones estrictos basados en línea (igual que find_model_definitions)
+  local patterns = {
+    "^\\s*_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
+    "^\\s*_inherit\\s*=\\s*\\[.*['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name']
+  }
+  
+  local inherit_pattern = table.concat(patterns, "|")
 
   local cfg = config.get()
   if cfg.navigation.use_fzf then
