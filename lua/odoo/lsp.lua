@@ -444,22 +444,35 @@ function M.generate_pyrightconfig(path)
     reportAttributeAccessIssue = false,
   }
 
-  -- Escribir archivo
-  local json = vim.fn.json_encode(pyrightconfig)
-  -- Formatear JSON bonito
-  json = json:gsub(",", ",\n  ")
-  json = json:gsub("{", "{\n  ")
-  json = json:gsub("}", "\n}")
-  json = json:gsub("%[", "[\n    ")
-  json = json:gsub("%]", "\n  ]")
-
+  -- Escribir archivo con formato JSON bonito
   local file = io.open(filepath, "w")
   if file then
-    file:write(json)
+    -- Usar vim.json.encode si está disponible (Neovim 0.10+)
+    local ok, json_str = pcall(vim.json.encode, pyrightconfig)
+    if not ok then
+      -- Fallback a vim.fn.json_encode
+      json_str = vim.fn.json_encode(pyrightconfig)
+    end
+    
+    -- Formatear JSON manualmente para mejor legibilidad
+    -- Esto es necesario porque vim.json.encode no soporta pretty-print
+    local formatted = json_str
+      :gsub('{"', '{\n  "')
+      :gsub(',"', ',\n  "')
+      :gsub(':%[', ': [\n    ')
+      :gsub(',%[', ',\n    [')
+      :gsub('"]', '"\n  ]')
+      :gsub('],"', '],\n  "')
+      :gsub(']}', ']\n}')
+      :gsub('",', '",\n    ')
+    
+    file:write(formatted)
     file:close()
-    util.info("Archivo generado: " .. filepath)
-    util.info("Tipo de proyecto: " .. (project_type or "unknown"))
-    util.info("Versión de Odoo: " .. version)
+    
+    util.info("✅ Archivo generado: " .. filepath)
+    util.info("📦 Tipo de proyecto: " .. (project_type or "unknown"))
+    util.info("🐍 Versión de Odoo: " .. version)
+    util.info("📁 Extra paths: " .. #analysis.extraPaths)
   else
     util.error("No se pudo escribir: " .. filepath)
   end

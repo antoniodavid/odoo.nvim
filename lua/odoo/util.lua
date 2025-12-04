@@ -347,10 +347,17 @@ function M.get_doodba_addons_paths(root)
   local paths = {}
 
   -- PRIORIDAD 1: Añadir código fuente de Odoo core PRIMERO
-  -- Esto es crítico para que el LSP encuentre definiciones de api, fields, models, etc.
+  -- Estos son los paths MÁS IMPORTANTES para que el LSP encuentre api, fields, models, etc.
   local odoo_core_paths = {
-    root .. "/odoo",  -- Código fuente principal de Odoo en Doodba
-    root .. "/odoo/odoo",  -- Directorio odoo anidado (común en algunos setups)
+    -- Path principal de Odoo en contenedor Doodba
+    root .. "/odoo",
+    root .. "/odoo/odoo",
+    
+    -- Paths del repositorio de Odoo en custom/src (si existe)
+    root .. "/odoo/custom/src/odoo",
+    root .. "/odoo/custom/src/odoo/odoo",
+    root .. "/odoo/custom/src/odoo/addons",
+    root .. "/odoo/custom/src/odoo/odoo/addons",
   }
 
   for _, path in ipairs(odoo_core_paths) do
@@ -359,7 +366,7 @@ function M.get_doodba_addons_paths(root)
     end
   end
 
-  -- PRIORIDAD 2: Parsear addons.yaml para rutas adicionales de Odoo
+  -- PRIORIDAD 2: Parsear addons.yaml para rutas adicionales de repositorios
   local addons_file = root .. "/odoo/custom/src/addons.yaml"
   if M.exists(addons_file) then
     local extra_paths = M._parse_addons_yaml(addons_file, root)
@@ -504,18 +511,23 @@ function M._parse_addons_yaml(addons_file, root)
       if M.exists(abs_path) and not vim.tbl_contains(paths, abs_path) then
         table.insert(paths, abs_path)
         
-        -- Si es un repositorio de Odoo, también agregar subdirectorios importantes
-        if repo_path:match("odoo") and not repo_path:match("odoo/custom") then
-          -- Agregar subdirectorio odoo/ si existe (para odoo/odoo/api.py)
-          local odoo_subdir = abs_path .. "/odoo"
-          if M.exists(odoo_subdir) and not vim.tbl_contains(paths, odoo_subdir) then
-            table.insert(paths, odoo_subdir)
-          end
+        -- CRÍTICO: Si es el repositorio de Odoo (termina en /odoo o contiene odoo/custom/src/odoo)
+        -- agregar TODOS los subdirectorios importantes
+        local is_odoo_repo = repo_path:match("/odoo$") or repo_path:match("odoo/custom/src/odoo$")
+        
+        if is_odoo_repo then
+          -- Paths críticos para que LSP encuentre api, fields, models, etc.
+          local critical_subdirs = {
+            "/odoo",           -- odoo/odoo/ - Contiene api.py, fields.py, models.py
+            "/addons",         -- odoo/addons/ - Módulos base de Odoo
+            "/odoo/addons",    -- odoo/odoo/addons/ - Addons dentro de odoo/
+          }
           
-          -- Agregar subdirectorio addons/ si existe
-          local addons_subdir = abs_path .. "/addons"
-          if M.exists(addons_subdir) and not vim.tbl_contains(paths, addons_subdir) then
-            table.insert(paths, addons_subdir)
+          for _, subdir in ipairs(critical_subdirs) do
+            local full_subdir = abs_path .. subdir
+            if M.exists(full_subdir) and not vim.tbl_contains(paths, full_subdir) then
+              table.insert(paths, full_subdir)
+            end
           end
         end
       end
