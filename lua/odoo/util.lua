@@ -1052,4 +1052,12 @@ function M.extract_model_name_at_cursor()
   return nil
 end
 
+---Escapa caracteres especiales para Regex (grep/rg)
+---vim.pesc usa % para escapar (Lua patterns), pero grep necesita \
+---@param str string
+---@return string
+function M.escape_regex(str)
+  return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "\\%1")
+end
+
 return M
