@@ -447,26 +447,48 @@ function M.generate_pyrightconfig(path)
   -- Escribir archivo con formato JSON bonito
   local file = io.open(filepath, "w")
   if file then
-    -- Usar vim.json.encode si está disponible (Neovim 0.10+)
-    local ok, json_str = pcall(vim.json.encode, pyrightconfig)
-    if not ok then
-      -- Fallback a vim.fn.json_encode
-      json_str = vim.fn.json_encode(pyrightconfig)
+    -- Formatear manualmente el pyrightconfig para mejor legibilidad
+    local lines = {
+      "{",
+      '  "include": [',
+    }
+    
+    -- Include paths
+    for i, path in ipairs(pyrightconfig.include) do
+      local comma = i < #pyrightconfig.include and "," or ""
+      table.insert(lines, '    "' .. path .. '"' .. comma)
     end
+    table.insert(lines, '  ],')
     
-    -- Formatear JSON manualmente para mejor legibilidad
-    -- Esto es necesario porque vim.json.encode no soporta pretty-print
-    local formatted = json_str
-      :gsub('{"', '{\n  "')
-      :gsub(',"', ',\n  "')
-      :gsub(':%[', ': [\n    ')
-      :gsub(',%[', ',\n    [')
-      :gsub('"]', '"\n  ]')
-      :gsub('],"', '],\n  "')
-      :gsub(']}', ']\n}')
-      :gsub('",', '",\n    ')
+    -- Exclude paths
+    table.insert(lines, '  "exclude": [')
+    for i, path in ipairs(pyrightconfig.exclude) do
+      local comma = i < #pyrightconfig.exclude and "," or ""
+      table.insert(lines, '    "' .. path .. '"' .. comma)
+    end
+    table.insert(lines, '  ],')
     
-    file:write(formatted)
+    -- Extra paths
+    table.insert(lines, '  "extraPaths": [')
+    for i, path in ipairs(pyrightconfig.extraPaths) do
+      local comma = i < #pyrightconfig.extraPaths and "," or ""
+      table.insert(lines, '    "' .. path .. '"' .. comma)
+    end
+    table.insert(lines, '  ],')
+    
+    -- Other settings
+    table.insert(lines, '  "typeCheckingMode": "' .. pyrightconfig.typeCheckingMode .. '",')
+    table.insert(lines, '  "pythonVersion": "' .. pyrightconfig.pythonVersion .. '",')
+    table.insert(lines, '  "pythonPlatform": "' .. pyrightconfig.pythonPlatform .. '",')
+    if pyrightconfig.stubPath then
+      table.insert(lines, '  "stubPath": "' .. pyrightconfig.stubPath .. '",')
+    end
+    table.insert(lines, '  "reportGeneralTypeIssues": false,')
+    table.insert(lines, '  "reportOptionalMemberAccess": false,')
+    table.insert(lines, '  "reportAttributeAccessIssue": false')
+    table.insert(lines, '}')
+    
+    file:write(table.concat(lines, "\n"))
     file:close()
     
     util.info("✅ Archivo generado: " .. filepath)

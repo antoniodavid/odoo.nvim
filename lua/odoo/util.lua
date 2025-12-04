@@ -488,39 +488,38 @@ function M._add_addon_subdirs(base_path, paths)
 end
 
 ---Parsea addons.yaml para obtener paths de repositorios
+---En Doodba, addons.yaml lista repositorios que están en odoo/custom/src/
+---El formato puede ser:
+---  delivery-carrier:
+---    - "*"
+---  ./odoo/custom/src/odoo:
+---    - base
 ---@param addons_file string
 ---@param root string
 ---@return string[]
 function M._parse_addons_yaml(addons_file, root)
   local paths = {}
   local content = vim.fn.readfile(addons_file)
+  local custom_src = root .. "/odoo/custom/src"
 
   for _, line in ipairs(content) do
-    -- Parse formato YAML: "  ./path/to/repo:" o "  path/to/repo:"
-    -- Soporta diferentes niveles de indentación
-    local repo_path = line:match("^%s*%.?/?([^:]+):%s*$")
-    
-    if repo_path then
-      -- Limpiar el path (remover ./ inicial si existe)
+    -- Formato 1: Path directo "  ./odoo/custom/src/repo:" o "  ./path/to/repo:"
+    local repo_path = line:match("^%s*%./?([^:]+):%s*$")
+    if repo_path and repo_path:match("/") then
+      -- Es un path directo (contiene /)
       repo_path = repo_path:gsub("^%./", "")
-      
-      -- Convertir a path absoluto
       local abs_path = root .. "/" .. repo_path
       
-      -- Verificar que existe y no está duplicado
       if M.exists(abs_path) and not vim.tbl_contains(paths, abs_path) then
         table.insert(paths, abs_path)
         
-        -- CRÍTICO: Si es el repositorio de Odoo (termina en /odoo o contiene odoo/custom/src/odoo)
-        -- agregar TODOS los subdirectorios importantes
+        -- Si es el repositorio de Odoo, agregar subdirectorios críticos
         local is_odoo_repo = repo_path:match("/odoo$") or repo_path:match("odoo/custom/src/odoo$")
-        
         if is_odoo_repo then
-          -- Paths críticos para que LSP encuentre api, fields, models, etc.
           local critical_subdirs = {
-            "/odoo",           -- odoo/odoo/ - Contiene api.py, fields.py, models.py
-            "/addons",         -- odoo/addons/ - Módulos base de Odoo
-            "/odoo/addons",    -- odoo/odoo/addons/ - Addons dentro de odoo/
+            "/odoo",
+            "/addons",
+            "/odoo/addons",
           }
           
           for _, subdir in ipairs(critical_subdirs) do
@@ -529,6 +528,16 @@ function M._parse_addons_yaml(addons_file, root)
               table.insert(paths, full_subdir)
             end
           end
+        end
+      end
+    else
+      -- Formato 2: Nombre de repositorio "delivery-carrier:"
+      -- En Doodba, estos repos están en odoo/custom/src/{nombre-repo}/
+      local repo_name = line:match("^([%w%-_]+):%s*$")
+      if repo_name then
+        local repo_path = custom_src .. "/" .. repo_name
+        if M.exists(repo_path) and not vim.tbl_contains(paths, repo_path) then
+          table.insert(paths, repo_path)
         end
       end
     end
