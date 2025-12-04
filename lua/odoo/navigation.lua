@@ -273,7 +273,7 @@ function M.find_model_definitions(model_name)
   local patterns = {
     "_name\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _name = 'model.name'
     "_inherit\\s*=\\s*['\"]" .. escaped_model .. "['\"]",  -- _inherit = 'model.name'
-    "_inherit\\s*=\\s*\\[.*['\"]" .. escaped_model .. "['\"]",  -- _inherit = ['model.name']
+    "_inherit\\s*=\\s*\\[[\\s\\S]*?['\"]" .. escaped_model .. "['\"]",  -- _inherit = [..., 'model.name'] (multilínea)
     "_inherits\\s*=.*['\"]" .. escaped_model .. "['\"]",  -- _inherits = {'model.name': ...}
   }
   
@@ -285,6 +285,7 @@ function M.find_model_definitions(model_name)
       prompt_title = "Definiciones de: " .. model_name,
       search_dirs = M._get_search_dirs(),
       type_filter = "py",
+      multiline = true, -- Habilitar búsqueda multilínea
     })
   else
     M._grep_search(combined_pattern, "py")
@@ -399,8 +400,17 @@ function M._fzf_search(pattern, opts)
     "--line-number",
     "--no-heading",
     "--color=always",
+    "--line-number",
+    "--no-heading",
+    "--color=always",
     "--smart-case",
   }
+  
+  -- Soporte para búsqueda multilínea (útil para listas en Python)
+  if opts.multiline then
+    table.insert(cmd_parts, "--multiline")
+    table.insert(cmd_parts, "--multiline-dotall")
+  end
   
   -- Agregar filtro de tipo de archivo si existe
   if opts.type_filter then
@@ -409,11 +419,12 @@ function M._fzf_search(pattern, opts)
   
   -- Agregar patrón de búsqueda (usar -e para pattern)
   table.insert(cmd_parts, "-e")
-  table.insert(cmd_parts, pattern)
+  table.insert(cmd_parts, vim.fn.shellescape(pattern))
   
   -- Agregar directorios
   for _, dir in ipairs(search_dirs) do
-    table.insert(cmd_parts, vim.fn.expand(dir))
+    local expanded_dir = vim.fn.expand(dir)
+    table.insert(cmd_parts, vim.fn.shellescape(expanded_dir))
   end
   
   local cmd = table.concat(cmd_parts, " ")
