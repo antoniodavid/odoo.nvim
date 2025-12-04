@@ -558,17 +558,28 @@ function M.setup_keymaps()
     pattern = "python",
     callback = function(args)
       local bufnr = args.buf
+      local bufname = vim.api.nvim_buf_get_name(bufnr)
+      
+      util.debug("🔧 FileType autocmd triggered for Python buffer: " .. bufnr)
+      util.debug("   Buffer name: " .. bufname)
 
       -- Solo aplicar en proyectos Odoo
-      if not util.is_odoo_project() then
-        util.debug("No es proyecto Odoo, keymaps no aplicados")
+      local is_odoo = util.is_odoo_project()
+      util.debug("   is_odoo_project(): " .. tostring(is_odoo))
+      
+      if not is_odoo then
+        local root, project_type = util.get_odoo_root()
+        util.debug("   get_odoo_root(): root=" .. tostring(root) .. ", type=" .. tostring(project_type))
+        util.warn("⚠️  No es proyecto Odoo, keymaps no aplicados")
+        util.info("💡 Asegúrate de estar en un directorio con odoo/ o __manifest__.py")
         return
       end
 
-      util.debug("Configurando keymaps de Odoo para buffer Python " .. bufnr)
+      util.info("✅ Configurando keymaps de Odoo para buffer Python " .. bufnr)
 
       -- <leader>om: Ir a modelo bajo cursor
       vim.keymap.set("n", "<leader>om", function()
+        util.debug("🔍 Keymap <leader>om triggered")
         M.goto_model_under_cursor()
       end, {
         buffer = bufnr,
@@ -577,6 +588,7 @@ function M.setup_keymaps()
 
       -- <leader>or: Buscar referencias
       vim.keymap.set("n", "<leader>or", function()
+        util.debug("🔍 Keymap <leader>or triggered")
         M.find_references()
       end, {
         buffer = bufnr,
@@ -585,13 +597,14 @@ function M.setup_keymaps()
 
       -- <leader>oi: Mostrar herencia
       vim.keymap.set("n", "<leader>oi", function()
+        util.debug("🔍 Keymap <leader>oi triggered")
         M.show_inheritance()
       end, {
         buffer = bufnr,
         desc = "Odoo: Mostrar herencia",
       })
       
-      util.debug("Keymaps configurados: <leader>om, <leader>or, <leader>oi")
+      util.info("✅ Keymaps configurados: <leader>om, <leader>or, <leader>oi")
     end,
   })
 end
@@ -802,6 +815,57 @@ function M.setup_commands()
   end, {
     nargs = "?",
     desc = "Mostrar cadena de herencia de vistas",
+  })
+  
+  -- Comando de diagnóstico
+  vim.api.nvim_create_user_command("OdooDebugNavigation", function()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local bufname = vim.api.nvim_buf_get_name(bufnr)
+    local ft = vim.bo.filetype
+    
+    util.info("=== Odoo Navigation Debug ===")
+    util.info("Buffer: " .. bufnr .. " (" .. bufname .. ")")
+    util.info("FileType: " .. ft)
+    
+    local is_odoo = util.is_odoo_project()
+    util.info("is_odoo_project(): " .. tostring(is_odoo))
+    
+    local root, project_type = util.get_odoo_root()
+    util.info("get_odoo_root(): root=" .. tostring(root) .. ", type=" .. tostring(project_type))
+    
+    if root then
+      local search_dirs = M._get_search_dirs()
+      util.info("Search directories (" .. #search_dirs .. "):")
+      for i, dir in ipairs(search_dirs) do
+        util.info("  " .. i .. ". " .. dir)
+      end
+    end
+    
+    -- Check keymaps
+    local keymaps = vim.api.nvim_buf_get_keymap(bufnr, "n")
+    local odoo_keymaps = {}
+    for _, map in ipairs(keymaps) do
+      if map.lhs:match("<leader>o") then
+        table.insert(odoo_keymaps, map.lhs .. " -> " .. (map.desc or ""))
+      end
+    end
+    
+    if #odoo_keymaps > 0 then
+      util.info("Registered Odoo keymaps:")
+      for _, km in ipairs(odoo_keymaps) do
+        util.info("  " .. km)
+      end
+    else
+      util.warn("No Odoo keymaps registered for this buffer")
+    end
+    
+    -- Test model extraction
+    if ft == "python" then
+      local model_name = util.extract_model_name_at_cursor()
+      util.info("extract_model_name_at_cursor(): " .. tostring(model_name))
+    end
+  end, {
+    desc = "Debug Odoo navigation configuration",
   })
 end
 
