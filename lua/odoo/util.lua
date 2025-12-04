@@ -346,7 +346,31 @@ end
 function M.get_doodba_addons_paths(root)
   local paths = {}
 
-  -- Estructura real de Doodba (según documentación y uso real)
+  -- PRIORIDAD 1: Añadir código fuente de Odoo core PRIMERO
+  -- Esto es crítico para que el LSP encuentre definiciones de api, fields, models, etc.
+  local odoo_core_paths = {
+    root .. "/odoo",  -- Código fuente principal de Odoo en Doodba
+    root .. "/odoo/odoo",  -- Directorio odoo anidado (común en algunos setups)
+  }
+
+  for _, path in ipairs(odoo_core_paths) do
+    if M.exists(path) and not vim.tbl_contains(paths, path) then
+      table.insert(paths, path)
+    end
+  end
+
+  -- PRIORIDAD 2: Parsear addons.yaml para rutas adicionales de Odoo
+  local addons_file = root .. "/odoo/custom/src/addons.yaml"
+  if M.exists(addons_file) then
+    local extra_paths = M._parse_addons_yaml(addons_file, root)
+    for _, path in ipairs(extra_paths) do
+      if not vim.tbl_contains(paths, path) then
+        table.insert(paths, path)
+      end
+    end
+  end
+
+  -- PRIORIDAD 3: Estructura real de Doodba (según documentación y uso real)
   local doodba_addon_dirs = {
     -- Addons custom del proyecto (donde van los módulos propios)
     "odoo/custom/src",
@@ -454,6 +478,51 @@ function M._add_addon_subdirs(base_path, paths)
       end
     end
   end
+end
+
+---Parsea addons.yaml para obtener paths de repositorios
+---@param addons_file string
+---@param root string
+---@return string[]
+function M._parse_addons_yaml(addons_file, root)
+  local paths = {}
+  local content = vim.fn.readfile(addons_file)
+
+  for _, line in ipairs(content) do
+    -- Parse formato YAML: "  ./path/to/repo:" o "  path/to/repo:"
+    -- Soporta diferentes niveles de indentación
+    local repo_path = line:match("^%s*%.?/?([^:]+):%s*$")
+    
+    if repo_path then
+      -- Limpiar el path (remover ./ inicial si existe)
+      repo_path = repo_path:gsub("^%./", "")
+      
+      -- Convertir a path absoluto
+      local abs_path = root .. "/" .. repo_path
+      
+      -- Verificar que existe y no está duplicado
+      if M.exists(abs_path) and not vim.tbl_contains(paths, abs_path) then
+        table.insert(paths, abs_path)
+        
+        -- Si es un repositorio de Odoo, también agregar subdirectorios importantes
+        if repo_path:match("odoo") and not repo_path:match("odoo/custom") then
+          -- Agregar subdirectorio odoo/ si existe (para odoo/odoo/api.py)
+          local odoo_subdir = abs_path .. "/odoo"
+          if M.exists(odoo_subdir) and not vim.tbl_contains(paths, odoo_subdir) then
+            table.insert(paths, odoo_subdir)
+          end
+          
+          -- Agregar subdirectorio addons/ si existe
+          local addons_subdir = abs_path .. "/addons"
+          if M.exists(addons_subdir) and not vim.tbl_contains(paths, addons_subdir) then
+            table.insert(paths, addons_subdir)
+          end
+        end
+      end
+    end
+  end
+
+  return paths
 end
 
 ---Parsea repos.yaml para obtener paths de repositorios
